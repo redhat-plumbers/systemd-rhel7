@@ -864,7 +864,7 @@ static int mount_all(const char *dest) {
                         return log_oom();
 
                 t = path_is_mount_point(where, true);
-                if (t < 0) {
+                if (t < 0 && t != -ENOENT) {
                         log_error_errno(t, "Failed to detect whether %s is a mount point: %m", where);
 
                         if (r == 0)
