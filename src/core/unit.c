@@ -97,6 +97,8 @@ Unit *unit_new(Manager *m, size_t size) {
         u->on_failure_job_mode = JOB_REPLACE;
         u->sigchldgen = 0;
 
+        RATELIMIT_INIT(u->check_unneeded_ratelimit, 10 * USEC_PER_SEC, 16);
+
         return u;
 }
 
@@ -1593,6 +1595,14 @@ static void unit_check_unneeded(Unit *u) {
         SET_FOREACH(other, u->dependencies[UNIT_BOUND_BY], i)
                 if (unit_active_or_pending(other))
                         return;
+
+        /* If stopping a unit fails continously we might enter a stop
+         * loop here, hence stop acting on the service being
+         * unnecessary after a while. */
+        if (!ratelimit_test(&u->check_unneeded_ratelimit)) {
+                log_unit_warning(u->id, "Unit not needed anymore, but not stopping since we tried this too often recently.");
+                return;
+        }
 
         log_unit_info(u->id, "Unit %s is not needed anymore. Stopping.", u->id);
 
