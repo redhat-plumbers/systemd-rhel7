@@ -180,22 +180,17 @@ const char* exit_status_to_string(ExitStatus status, ExitStatusLevel level) {
         return NULL;
 }
 
-
-bool is_clean_exit(int code, int status, ExitStatusSet *success_status) {
+bool is_clean_exit(int code, int status, ExitClean clean, ExitStatusSet *success_status) {
 
         if (code == CLD_EXITED)
                 return status == 0 ||
                        (success_status &&
                        set_contains(success_status->status, INT_TO_PTR(status)));
 
-        /* If a daemon does not implement handlers for some of the
-         * signals that's not considered an unclean shutdown */
+        /* If a daemon does not implement handlers for some of the signals that's not considered an unclean shutdown */
         if (code == CLD_KILLED)
                 return
-                        status == SIGHUP ||
-                        status == SIGINT ||
-                        status == SIGTERM ||
-                        status == SIGPIPE ||
+                        (clean == EXIT_CLEAN_DAEMON && IN_SET(status, SIGHUP, SIGINT, SIGTERM, SIGPIPE)) ||
                         (success_status &&
                         set_contains(success_status->signal, INT_TO_PTR(status)));
 
@@ -204,7 +199,7 @@ bool is_clean_exit(int code, int status, ExitStatusSet *success_status) {
 
 bool is_clean_exit_lsb(int code, int status, ExitStatusSet *success_status) {
 
-        if (is_clean_exit(code, status, success_status))
+        if (is_clean_exit(code, status, EXIT_CLEAN_DAEMON, success_status))
                 return true;
 
         return
