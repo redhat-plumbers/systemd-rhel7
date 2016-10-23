@@ -262,7 +262,17 @@ static void service_fd_store_unlink(ServiceFDStore *fs) {
         free(fs);
 }
 
-static void service_release_resources(Unit *u) {
+static void service_release_fd_store(Service *s) {
+        assert(s);
+
+        log_unit_debug(UNIT(s)->id, "Releasing all stored fds");
+        while (s->fd_store)
+                service_fd_store_unlink(s->fd_store);
+
+        assert(s->n_fd_store == 0);
+}
+
+static void service_release_resources(Unit *u, bool inactive) {
         Service *s = SERVICE(u);
 
         assert(s);
@@ -270,12 +280,10 @@ static void service_release_resources(Unit *u) {
         if (!s->fd_store)
                 return;
 
-        log_debug("Releasing all resources for %s", u->id);
+        log_unit_debug(u, "Releasing resources.");
 
-        while (s->fd_store)
-                service_fd_store_unlink(s->fd_store);
-
-        assert(s->n_fd_store == 0);
+        if (inactive)
+                service_release_fd_store(s);
 }
 
 static void service_done(Unit *u) {
@@ -323,7 +331,7 @@ static void service_done(Unit *u) {
 
         s->timer_event_source = sd_event_source_unref(s->timer_event_source);
 
-        service_release_resources(u);
+        service_release_resources(u, true);
 }
 
 static int on_fd_store_io(sd_event_source *e, int fd, uint32_t revents, void *userdata) {

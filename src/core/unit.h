@@ -356,7 +356,7 @@ struct UnitVTable {
 
         /* When the unit is not running and no job for it queued we
          * shall release its runtime resources */
-        void (*release_resources)(Unit *u);
+        void (*release_resources)(Unit *u, bool inactive);
 
         /* Return true when this unit is suitable for snapshotting */
         bool (*check_snapshot)(Unit *u);
