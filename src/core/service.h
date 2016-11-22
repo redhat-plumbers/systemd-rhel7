@@ -108,6 +108,7 @@ typedef enum NotifyState {
 typedef enum ServiceResult {
         SERVICE_SUCCESS,
         SERVICE_FAILURE_RESOURCES,
+        SERVICE_FAILURE_PROTOCOL,
         SERVICE_FAILURE_TIMEOUT,
         SERVICE_FAILURE_EXIT_CODE,
         SERVICE_FAILURE_SIGNAL,
