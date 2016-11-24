@@ -128,6 +128,7 @@ static const char *arg_kill_who = NULL;
 static int arg_signal = SIGTERM;
 static const char *arg_root = NULL;
 static usec_t arg_when = 0;
+static char *argv_cmdline = NULL;
 static enum action {
         _ACTION_INVALID,
         ACTION_SYSTEMCTL,
@@ -5060,6 +5061,13 @@ static int switch_root(sd_bus *bus, char **args) {
                         init = NULL;
         }
 
+        /* Instruct PID1 to exclude us from its killing spree applied during
+         * the transition from the initrd to the main system otherwise we would
+         * exit with a failure status even though the switch to the new root
+         * has succeed. */
+        if (in_initrd())
+                argv_cmdline[0] = '@';
+
         log_debug("Switching root - root: %s; init: %s", root, strna(init));
 
         r = sd_bus_call_method(
@@ -7625,6 +7633,8 @@ static int runlevel_main(void) {
 int main(int argc, char*argv[]) {
         _cleanup_bus_close_unref_ sd_bus *bus = NULL;
         int r;
+
+        argv_cmdline = argv[0];
 
         setlocale(LC_ALL, "");
         log_parse_environment();
