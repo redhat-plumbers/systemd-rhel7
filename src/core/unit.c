@@ -1448,12 +1448,38 @@ void unit_status_emit_starting_stopping_reloading(Unit *u, JobType t) {
                 unit_status_print_starting_stopping(u, t);
 }
 
+static bool unit_verify_deps(Unit *u) {
+        Unit *other;
+        Iterator j;
+
+        assert(u);
+
+        /* Checks whether all BindsTo= dependencies of this unit are fulfilled — if they are also combined with
+         * After=. We do not check Requires= or Requisite= here as they only should have an effect on the job
+         * processing, but do not have any effect afterwards. We don't check BindsTo= dependencies that are not used in
+         * conjunction with After= as for them any such check would make things entirely racy. */
+
+        SET_FOREACH(other, u->dependencies[UNIT_BINDS_TO], j) {
+
+                if (!set_contains(u->dependencies[UNIT_AFTER], other))
+                        continue;
+
+                if (!UNIT_IS_ACTIVE_OR_RELOADING(unit_active_state(other))) {
+                        log_unit_notice(u->id, "Bound to unit %s, but unit isn't active.", other->id);
+                        return false;
+                }
+        }
+
+        return true;
+}
+
 /* Errors:
  *         -EBADR:     This unit type does not support starting.
  *         -EALREADY:  Unit is already started.
  *         -EAGAIN:    An operation is already in progress. Retry later.
  *         -ECANCELED: Too many requests for now.
  *         -EPROTO:    Assert failed
+ *         -ENOLINK:    The necessary dependencies are not fulfilled.
  */
 int unit_start(Unit *u) {
         UnitActiveState state;
@@ -1488,6 +1514,12 @@ int unit_start(Unit *u) {
                 log_unit_debug(u->id, "Starting of %s requested but asserts failed.", u->id);
                 return -EPROTO;
         }
+
+        /* Let's make sure that the deps really are in order before we start this. Normally the job engine should have
+         * taken care of this already, but let's check this here again. After all, our dependencies might not be in
+         * effect anymore, due to a reload or due to a failed condition. */
+        if (!unit_verify_deps(u))
+                return -ENOLINK;
 
         /* Forward to the main object, if we aren't it. */
         following = unit_following(u);
