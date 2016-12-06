@@ -1556,7 +1556,7 @@ static void service_enter_running(Service *s, ServiceResult f) {
                         service_set_state(s, SERVICE_RUNNING);
 
         } else if (f != SERVICE_SUCCESS)
-                service_enter_signal(s, SERVICE_FINAL_SIGTERM, f);
+                service_enter_signal(s, SERVICE_STOP_SIGTERM, f);
         else if (s->remain_after_exit)
                 service_set_state(s, SERVICE_EXITED);
         else
@@ -1695,7 +1695,7 @@ static void service_enter_start(Service *s) {
 
 fail:
         log_unit_warning_errno(UNIT(s)->id, r, "%s failed to run 'start' task: %m", UNIT(s)->id);
-        service_enter_signal(s, SERVICE_FINAL_SIGTERM, SERVICE_FAILURE_RESOURCES);
+        service_enter_signal(s, SERVICE_STOP_SIGTERM, SERVICE_FAILURE_RESOURCES);
 }
 
 static void service_enter_start_pre(Service *s) {
@@ -1847,9 +1847,7 @@ static void service_run_next_control(Service *s) {
 fail:
         log_unit_warning_errno(UNIT(s)->id, r, "%s failed to run next control task: %m", UNIT(s)->id);
 
-        if (s->state == SERVICE_START_PRE)
-                service_enter_signal(s, SERVICE_FINAL_SIGTERM, SERVICE_FAILURE_RESOURCES);
-        else if (s->state == SERVICE_STOP)
+        if (IN_SET(s->state, SERVICE_START_PRE, SERVICE_STOP))
                 service_enter_signal(s, SERVICE_STOP_SIGTERM, SERVICE_FAILURE_RESOURCES);
         else if (s->state == SERVICE_STOP_POST)
                 service_enter_dead(s, SERVICE_FAILURE_RESOURCES, true);
@@ -2596,7 +2594,7 @@ static void service_notify_cgroup_empty_event(Unit *u) {
 
                         service_unwatch_pid_file(s);
                         if (s->state == SERVICE_START)
-                                service_enter_signal(s, SERVICE_FINAL_SIGTERM, SERVICE_FAILURE_PROTOCOL);
+                                service_enter_stop_post(s, SERVICE_FAILURE_PROTOCOL);
                         else
                                 service_enter_stop(s, SERVICE_FAILURE_PROTOCOL);
                 }
@@ -2725,17 +2723,17 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                         if (f == SERVICE_SUCCESS)
                                                 service_enter_start_post(s);
                                         else
-                                                service_enter_signal(s, SERVICE_FINAL_SIGTERM, f);
+                                                service_enter_signal(s, SERVICE_STOP_SIGTERM, f);
                                         break;
                                 } else if (s->type == SERVICE_NOTIFY) {
                                         /* Only enter running through a notification, so that the
                                          * SERVICE_START state signifies that no ready notification
                                          * has been received */
                                         if (f != SERVICE_SUCCESS)
-                                                service_enter_signal(s, SERVICE_FINAL_SIGTERM, f);
+                                                service_enter_signal(s, SERVICE_STOP_SIGTERM, f);
                                         else if (!s->remain_after_exit)
                                                 /* The service has never been active */
-                                                service_enter_signal(s, SERVICE_FINAL_SIGTERM, SERVICE_FAILURE_PROTOCOL);
+                                                service_enter_signal(s, SERVICE_STOP_SIGTERM, SERVICE_FAILURE_PROTOCOL);
                                         break;
                                 }
 
@@ -2816,7 +2814,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 if (f == SERVICE_SUCCESS)
                                         service_enter_start(s);
                                 else
-                                        service_enter_signal(s, SERVICE_FINAL_SIGTERM, f);
+                                        service_enter_signal(s, SERVICE_STOP_SIGTERM, f);
                                 break;
 
                         case SERVICE_START:
@@ -2825,7 +2823,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                         break;
 
                                 if (f != SERVICE_SUCCESS) {
-                                        service_enter_signal(s, SERVICE_FINAL_SIGTERM, f);
+                                        service_enter_signal(s, SERVICE_STOP_SIGTERM, f);
                                         break;
                                 }
 
@@ -2842,7 +2840,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                         if (!has_start_post && r < 0) {
                                                 r = service_demand_pid_file(s);
                                                 if (r < 0 || !cgroup_good(s))
-                                                        service_enter_signal(s, SERVICE_FINAL_SIGTERM, SERVICE_FAILURE_PROTOCOL);
+                                                        service_enter_signal(s, SERVICE_STOP_SIGTERM, SERVICE_FAILURE_PROTOCOL);
                                                 break;
                                         }
                                 } else
@@ -2938,7 +2936,7 @@ static int service_dispatch_timer(sd_event_source *source, usec_t usec, void *us
         case SERVICE_START_PRE:
         case SERVICE_START:
                 log_unit_warning(UNIT(s)->id, "%s %s operation timed out. Terminating.", UNIT(s)->id, s->state == SERVICE_START ? "start" : "start-pre");
-                service_enter_signal(s, SERVICE_FINAL_SIGTERM, SERVICE_FAILURE_TIMEOUT);
+                service_enter_signal(s, SERVICE_STOP_SIGTERM, SERVICE_FAILURE_TIMEOUT);
                 break;
 
         case SERVICE_START_POST:
