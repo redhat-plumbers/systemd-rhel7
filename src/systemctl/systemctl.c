@@ -5062,11 +5062,9 @@ static int switch_root(sd_bus *bus, char **args) {
         }
 
         /* Instruct PID1 to exclude us from its killing spree applied during
-         * the transition from the initrd to the main system otherwise we would
-         * exit with a failure status even though the switch to the new root
-         * has succeed. */
-        if (in_initrd())
-                argv_cmdline[0] = '@';
+         * the transition. Otherwise we would exit with a failure status even
+         * though the switch to the new root has succeed. */
+        argv_cmdline[0] = '@';
 
         log_debug("Switching root - root: %s; init: %s", root, strna(init));
 
