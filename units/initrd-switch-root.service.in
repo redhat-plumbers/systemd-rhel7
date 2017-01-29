@@ -17,4 +17,3 @@ AllowIsolate=yes
 Type=oneshot
 # we have to use "--force" here, otherwise systemd would umount /run
 ExecStart=@rootbindir@/systemctl --no-block --force switch-root /sysroot
-KillMode=none
