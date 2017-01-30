@@ -5066,6 +5066,14 @@ static int switch_root(sd_bus *bus, char **args) {
          * though the switch to the new root has succeed. */
         argv_cmdline[0] = '@';
 
+        /* If we are slow to exit after the root switch, the new systemd instance
+         * will send us a signal to terminate. Just ignore it and exit normally.
+         * This way the unit does not end up as failed.
+         */
+        r = ignore_signals(SIGTERM, -1);
+        if (r < 0)
+                log_warning_errno(r, "Failed to change disposition of SIGTERM to ignore: %m");
+
         log_debug("Switching root - root: %s; init: %s", root, strna(init));
 
         r = sd_bus_call_method(
@@ -5078,6 +5086,8 @@ static int switch_root(sd_bus *bus, char **args) {
                         NULL,
                         "ss", root, init);
         if (r < 0) {
+                (void) default_signals(SIGTERM, -1);
+
                 log_error("Failed to switch root: %s", bus_error_message(&error, r));
                 return r;
         }
