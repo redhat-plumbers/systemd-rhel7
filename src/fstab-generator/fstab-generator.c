@@ -240,6 +240,7 @@ static int write_idle_timeout(FILE *f, const char *where, const char *opts) {
 static int add_mount(
                 const char *what,
                 const char *where,
+                const char *original_where,
                 const char *fstype,
                 const char *opts,
                 int passno,
@@ -327,12 +328,14 @@ static int add_mount(
         }
 
         fprintf(f,
-                "\n"
+                 "\n"
                 "[Mount]\n"
-                "What=%s\n"
-                "Where=%s\n",
-                what,
-                where);
+                "What=%s\n",
+                 what);
+
+        if (original_where)
+                fprintf(f, "# Canonicalized from %s\n", original_where);
+        fprintf(f, "Where=%s\n", where);
 
         if (!isempty(fstype) && !streq(fstype, "auto"))
                 fprintf(f, "Type=%s\n", fstype);
@@ -436,7 +439,7 @@ static int parse_fstab(bool initrd) {
         }
 
         while ((me = getmntent(f))) {
-                _cleanup_free_ char *where = NULL, *what = NULL;
+                _cleanup_free_ char *where = NULL, *what = NULL, *canonical_where = NULL;
                 bool noauto, nofail;
                 int k;
 
@@ -456,8 +459,28 @@ static int parse_fstab(bool initrd) {
                 if (!where)
                         return log_oom();
 
-                if (is_path(where))
+                if (is_path(where)) {
                         path_kill_slashes(where);
+                        /* Follow symlinks here; see 5261ba901845c084de5a8fd06500ed09bfb0bd80 which makes sense for
+                         * mount units, but causes problems since it historically worked to have symlinks in e.g.
+                         * /etc/fstab. So we canonicalize here. Note that we use CHASE_NONEXISTENT to handle the case
+                         * where a symlink refers to another mount target; this works assuming the sub-mountpoint
+                         * target is the final directory.
+                         */
+                        r = chase_symlinks(where, initrd ? "/sysroot" : NULL,
+                                           CHASE_PREFIX_ROOT | CHASE_NONEXISTENT,
+                                           &canonical_where);
+                        if (r < 0)
+                                /* In this case for now we continue on as if it wasn't a symlink */
+                                log_warning_errno(r, "Failed to read symlink target for %s: %m", where);
+                        else {
+                                if (streq(canonical_where, where))
+                                        canonical_where = mfree(canonical_where);
+                                else
+                                        log_debug("Canonicalized what=%s where=%s to %s",
+                                                  what, where, canonical_where);
+                        }
+                }
 
                 noauto = fstab_test_yes_no_option(me->mnt_opts, "noauto\0" "auto\0");
                 nofail = fstab_test_yes_no_option(me->mnt_opts, "nofail\0" "fail\0");
@@ -482,7 +505,8 @@ static int parse_fstab(bool initrd) {
                                 post = SPECIAL_LOCAL_FS_TARGET;
 
                         k = add_mount(what,
-                                      where,
+                                      canonical_where ?: where,
+                                      canonical_where ? where: NULL,
                                       me->mnt_type,
                                       me->mnt_opts,
                                       me->mnt_passno,
@@ -526,6 +550,7 @@ static int add_sysroot_mount(void) {
         log_debug("Found entry what=%s where=/sysroot type=%s", what, strna(arg_root_fstype));
         return add_mount(what,
                          "/sysroot",
+                         NULL,
                          arg_root_fstype,
                          opts,
                          1,
@@ -583,6 +608,7 @@ static int add_sysroot_usr_mount(void) {
         log_debug("Found entry what=%s where=/sysroot/usr type=%s", what, strna(arg_usr_fstype));
         return add_mount(what,
                          "/sysroot/usr",
+                         NULL,
                          arg_usr_fstype,
                          opts,
                          1,
