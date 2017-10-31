@@ -31,6 +31,7 @@ SUBSYSTEM=="misc", KERNEL=="agpgart", GROUP="video"
 SUBSYSTEM=="graphics", GROUP="video"
 SUBSYSTEM=="drm", GROUP="video"
 SUBSYSTEM=="dvb", GROUP="video"
+SUBSYSTEM=="kfd", GROUP="video"
 
 SUBSYSTEM=="sound", GROUP="audio", \
   OPTIONS+="static_node=snd/seq", OPTIONS+="static_node=snd/timer"
