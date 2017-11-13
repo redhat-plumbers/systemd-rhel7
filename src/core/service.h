@@ -212,6 +212,7 @@ struct Service {
         ServiceFDStore *fd_store;
         unsigned n_fd_store;
         unsigned n_fd_store_max;
+        unsigned n_keep_fd_store;
 };
 
 extern const UnitVTable service_vtable;
