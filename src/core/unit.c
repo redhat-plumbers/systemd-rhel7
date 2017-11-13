@@ -285,7 +285,6 @@ int unit_set_description(Unit *u, const char *description) {
 
 bool unit_may_gc(Unit *u) {
         UnitActiveState state;
-        bool inactive;
         assert(u);
 
         /* Checks whether the unit is ready to be unloaded for garbage collection.
@@ -303,17 +302,14 @@ bool unit_may_gc(Unit *u) {
                 return false;
 
         state = unit_active_state(u);
-        inactive = state == UNIT_INACTIVE;
 
-        /* If the unit is inactive and failed and no job is queued for
-         * it, then release its runtime resources */
+        /* If the unit is inactive and failed and no job is queued for it, then release its runtime resources */
         if (UNIT_IS_INACTIVE_OR_FAILED(state) &&
             UNIT_VTABLE(u)->release_resources)
-                UNIT_VTABLE(u)->release_resources(u, inactive);
+                UNIT_VTABLE(u)->release_resources(u);
 
-        /* But we keep the unit object around for longer when it is
-         * referenced or configured to not be gc'ed */
-        if (!inactive)
+        /* But we keep the unit object around for longer when it is referenced or configured to not be gc'ed */
+        if (state != UNIT_INACTIVE)
                 return false;
 
         if (UNIT_VTABLE(u)->no_gc)
