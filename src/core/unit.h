@@ -60,6 +60,13 @@ typedef enum KillOperation {
         KILL_ABORT,
 } KillOperation;
 
+typedef enum CollectMode {
+        COLLECT_INACTIVE,
+        COLLECT_INACTIVE_OR_FAILED,
+        _COLLECT_MODE_MAX,
+        _COLLECT_MODE_INVALID = -1,
+} CollectMode;
+
 static inline bool UNIT_IS_ACTIVE_OR_RELOADING(UnitActiveState t) {
         return t == UNIT_ACTIVE || t == UNIT_RELOADING;
 }
@@ -197,6 +204,9 @@ struct Unit {
 
         /* How to start OnFailure units */
         JobMode on_failure_job_mode;
+
+        /* Tweaking the GC logic */
+        CollectMode collect_mode;
 
         /* Garbage collect us we nobody wants or requires us anymore */
         bool stop_when_unneeded;
@@ -629,6 +639,9 @@ pid_t unit_main_pid(Unit *u);
 
 const char *unit_active_state_to_string(UnitActiveState i) _const_;
 UnitActiveState unit_active_state_from_string(const char *s) _pure_;
+
+const char* collect_mode_to_string(CollectMode m) _const_;
+CollectMode collect_mode_from_string(const char *s) _pure_;
 
 bool unit_needs_console(Unit *u);
 
