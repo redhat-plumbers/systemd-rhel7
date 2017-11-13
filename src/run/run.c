@@ -60,6 +60,7 @@ static usec_t arg_on_unit_inactive = 0;
 static char *arg_on_calendar = NULL;
 static char **arg_timer_property = NULL;
 static bool arg_quiet = false;
+static bool arg_aggressive_gc = false;
 
 static void help(void) {
         printf("%s [OPTIONS...] {COMMAND} [ARGS...]\n\n"
@@ -84,6 +85,7 @@ static void help(void) {
                "     --setenv=NAME=VALUE          Set environment\n"
                "  -t --pty                        Run service on pseudo tty\n"
                "  -q --quiet                      Suppress information messages during runtime\n\n"
+               "  -G --collect                    Unload unit after it ran, even when failed\n\n"
                "Timer options:\n\n"
                "     --on-active=SECONDS          Run after SECONDS delay\n"
                "     --on-boot=SECONDS            Run SECONDS after machine was booted up\n"
@@ -153,6 +155,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "on-unit-inactive",  required_argument, NULL, ARG_ON_UNIT_INACTIVE },
                 { "on-calendar",       required_argument, NULL, ARG_ON_CALENDAR      },
                 { "timer-property",    required_argument, NULL, ARG_TIMER_PROPERTY   },
+                { "collect",           no_argument,       NULL, 'G'                  },
                 {},
         };
 
@@ -162,7 +165,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "+hrH:M:p:tq", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "+hrH:M:p:tqG", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -329,6 +332,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case 'G':
+                        arg_aggressive_gc = true;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -381,6 +388,12 @@ static int transient_unit_set_properties(sd_bus_message *m, char **properties) {
         r = sd_bus_message_append(m, "(sv)", "Description", "s", arg_description);
         if (r < 0)
                 return r;
+
+        if (arg_aggressive_gc) {
+                r = sd_bus_message_append(m, "(sv)", "CollectMode", "s", "inactive-or-failed");
+                if (r < 0)
+                        return r;
+        }
 
         STRV_FOREACH(i, properties) {
                 r = sd_bus_message_open_container(m, 'r', "sv");
