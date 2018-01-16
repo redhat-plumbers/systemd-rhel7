@@ -416,6 +416,7 @@ static void timer_enter_waiting(Timer *t, bool initial) {
 
                                 if (base <= 0)
                                         continue;
+                                base = MAX(base, t->last_trigger.monotonic);
 
                                 break;
 
@@ -428,6 +429,7 @@ static void timer_enter_waiting(Timer *t, bool initial) {
 
                                 if (base <= 0)
                                         continue;
+                                base = MAX(base, t->last_trigger.monotonic);
 
                                 break;
 
