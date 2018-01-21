@@ -9414,8 +9414,6 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
                                 if (fd < 0)
                                         return -errno;
 
-                                free(done);
-
                                 if (flags & CHASE_SAFE) {
                                         if (fstat(fd, &st) < 0)
                                                 return -errno;
@@ -9425,6 +9423,8 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
 
                                         previous_stat = st;
                                 }
+
+                                free(done);
 
                                 /* Note that we do not revalidate the root, we take it as is. */
                                 if (isempty(root))
