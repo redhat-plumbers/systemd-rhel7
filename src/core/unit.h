@@ -238,6 +238,7 @@ struct Unit {
         bool no_gc:1;
 
         bool in_audit:1;
+        bool on_console:1;
 
         bool cgroup_realized:1;
         bool cgroup_members_mask_valid:1;
