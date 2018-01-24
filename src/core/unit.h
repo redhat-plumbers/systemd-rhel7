@@ -408,6 +408,9 @@ struct UnitVTable {
         /* Returns the main PID if there is any defined, or 0. */
         pid_t (*control_pid)(Unit *u);
 
+        /* Returns true if the unit currently needs access to the console */
+        bool (*needs_console)(Unit *u);
+
         /* This is called for each unit type and should be used to
          * enumerate existing devices and load them. However,
          * everything that is loaded here should still stay in
@@ -626,6 +629,8 @@ pid_t unit_main_pid(Unit *u);
 
 const char *unit_active_state_to_string(UnitActiveState i) _const_;
 UnitActiveState unit_active_state_from_string(const char *s) _pure_;
+
+bool unit_needs_console(Unit *u);
 
 /* Macros which append UNIT= or USER_UNIT= to the message */
 
