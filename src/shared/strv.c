@@ -353,19 +353,16 @@ char *strv_join_quoted(char **l) {
         size_t allocated = 0, len = 0;
 
         STRV_FOREACH(s, l) {
-                /* assuming here that escaped string cannot be more
-                 * than twice as long, and reserving space for the
-                 * separator and quotes.
-                 */
                 _cleanup_free_ char *esc = NULL;
                 size_t needed;
 
-                if (!GREEDY_REALLOC(buf, allocated,
-                                    len + strlen(*s) * 2 + 3))
-                        goto oom;
-
                 esc = cescape(*s);
                 if (!esc)
+                        goto oom;
+
+                /* reserving space for the escaped text, separator, quotes and NULL terminator. */
+                if (!GREEDY_REALLOC(buf, allocated,
+                                    len + strlen(esc) + 4))
                         goto oom;
 
                 needed = snprintf(buf + len, allocated - len, "%s\"%s\"",
