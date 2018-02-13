@@ -967,7 +967,7 @@ static int bus_unit_set_transient_property(
                                 return -EINVAL;
 
                         if (mode != UNIT_CHECK) {
-                                unit_ref_set(&u->slice, slice);
+                                unit_ref_set(&u->slice, u, slice);
                                 unit_write_drop_in_private_format(u, mode, name, "Slice=%s\n", s);
                         }
                 }
