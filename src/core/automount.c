@@ -936,13 +936,16 @@ static const char *automount_sub_state_to_string(Unit *u) {
         return automount_state_to_string(AUTOMOUNT(u)->state);
 }
 
-static bool automount_check_gc(Unit *u) {
+static bool automount_may_gc(Unit *u) {
+        Unit *t;
+
         assert(u);
 
-        if (!UNIT_TRIGGER(u))
-                return false;
+        t = UNIT_TRIGGER(u);
+        if (!t)
+                return true;
 
-        return UNIT_VTABLE(UNIT_TRIGGER(u))->check_gc(UNIT_TRIGGER(u));
+        return UNIT_VTABLE(t)->may_gc(t);
 }
 
 static int automount_dispatch_io(sd_event_source *s, int fd, uint32_t events, void *userdata) {
@@ -1115,7 +1118,7 @@ const UnitVTable automount_vtable = {
         .active_state = automount_active_state,
         .sub_state_to_string = automount_sub_state_to_string,
 
-        .check_gc = automount_check_gc,
+        .may_gc = automount_may_gc,
 
         .reset_failed = automount_reset_failed,
 

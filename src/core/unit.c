@@ -282,15 +282,19 @@ int unit_set_description(Unit *u, const char *description) {
         return 0;
 }
 
-bool unit_check_gc(Unit *u) {
+bool unit_may_gc(Unit *u) {
         UnitActiveState state;
         assert(u);
 
+        /* Checks whether the unit is ready to be unloaded for garbage collection.
+         * Returns true when the unit may be collected, and false if there's some
+         * reason to keep it loaded. */
+
         if (u->job)
-                return true;
+                return false;
 
         if (u->nop_job)
-                return true;
+                return false;
 
         state = unit_active_state(u);
 
@@ -303,22 +307,21 @@ bool unit_check_gc(Unit *u) {
         /* But we keep the unit object around for longer when it is
          * referenced or configured to not be gc'ed */
         if (state != UNIT_INACTIVE)
-                return true;
+                return false;
 
         if (UNIT_VTABLE(u)->no_gc)
-                return true;
+                return false;
 
         if (u->no_gc)
-                return true;
+                return false;
 
         if (u->refs)
-                return true;
+                return false;
 
-        if (UNIT_VTABLE(u)->check_gc)
-                if (UNIT_VTABLE(u)->check_gc(u))
-                        return true;
+        if (UNIT_VTABLE(u)->may_gc && !UNIT_VTABLE(u)->may_gc(u))
+                return false;
 
-        return false;
+        return true;
 }
 
 void unit_add_to_load_queue(Unit *u) {
@@ -348,7 +351,7 @@ void unit_add_to_gc_queue(Unit *u) {
         if (u->in_gc_queue || u->in_cleanup_queue)
                 return;
 
-        if (unit_check_gc(u))
+        if (!unit_may_gc(u))
                 return;
 
         LIST_PREPEND(gc_queue, u->manager->gc_queue, u);
@@ -888,7 +891,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 "%s\tActive Enter Timestamp: %s\n"
                 "%s\tActive Exit Timestamp: %s\n"
                 "%s\tInactive Enter Timestamp: %s\n"
-                "%s\tGC Check Good: %s\n"
+                "%s\tMay GC: %s\n"
                 "%s\tNeed Daemon Reload: %s\n"
                 "%s\tTransient: %s\n"
                 "%s\tSlice: %s\n"
@@ -905,7 +908,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, strna(format_timestamp(timestamp2, sizeof(timestamp2), u->active_enter_timestamp.realtime)),
                 prefix, strna(format_timestamp(timestamp3, sizeof(timestamp3), u->active_exit_timestamp.realtime)),
                 prefix, strna(format_timestamp(timestamp4, sizeof(timestamp4), u->inactive_enter_timestamp.realtime)),
-                prefix, yes_no(unit_check_gc(u)),
+                prefix, yes_no(unit_may_gc(u)),
                 prefix, yes_no(unit_need_daemon_reload(u)),
                 prefix, yes_no(u->transient),
                 prefix, strna(unit_slice_name(u)),
