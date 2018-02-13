@@ -76,7 +76,7 @@ static int slice_add_parent_slice(Slice *s) {
         if (r < 0)
                 return r;
 
-        unit_ref_set(&UNIT(s)->slice, parent);
+        unit_ref_set(&UNIT(s)->slice, UNIT(s), parent);
         return 0;
 }
 

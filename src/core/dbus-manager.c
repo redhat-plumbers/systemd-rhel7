@@ -649,7 +649,7 @@ static int transient_unit_from_message(
             u->fragment_path ||
             u->source_path ||
             !strv_isempty(u->dropin_paths) ||
-            u->refs ||
+            u->refs_by_target ||
             set_size(u->dependencies[UNIT_REFERENCED_BY]) > 0)
                 return sd_bus_error_setf(error, BUS_ERROR_UNIT_EXISTS, "Unit %s already exists.", name);
 
