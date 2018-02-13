@@ -537,6 +537,15 @@ void unit_free(Unit *u) {
         set_remove(u->manager->failed_units, u);
         set_remove(u->manager->startup_units, u);
 
+        unit_unwatch_all_pids(u);
+
+        unit_ref_unset(&u->slice);
+        while (u->refs_by_target)
+                unit_ref_unset(u->refs_by_target);
+
+        condition_free_list(u->conditions);
+        condition_free_list(u->asserts);
+
         free(u->description);
         strv_free(u->documentation);
         free(u->fragment_path);
@@ -547,15 +556,6 @@ void unit_free(Unit *u) {
         free(u->job_timeout_reboot_arg);
 
         set_free_free(u->names);
-
-        unit_unwatch_all_pids(u);
-
-        condition_free_list(u->conditions);
-        condition_free_list(u->asserts);
-
-        unit_ref_unset(&u->slice);
-        while (u->refs_by_target)
-                unit_ref_unset(u->refs_by_target);
 
         free(u);
 }
