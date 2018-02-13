@@ -2436,7 +2436,7 @@ static const char *service_sub_state_to_string(Unit *u) {
         return service_state_to_string(SERVICE(u)->state);
 }
 
-static bool service_check_gc(Unit *u) {
+static bool service_may_gc(Unit *u) {
         Service *s = SERVICE(u);
 
         assert(s);
@@ -2446,9 +2446,9 @@ static bool service_check_gc(Unit *u) {
         if (cgroup_good(s) > 0 ||
             main_pid_good(s) > 0 ||
             control_pid_good(s) > 0)
-                return true;
+                return false;
 
-        return false;
+        return true;
 }
 
 _pure_ static bool service_check_snapshot(Unit *u) {
@@ -3461,7 +3461,7 @@ const UnitVTable service_vtable = {
         .active_state = service_active_state,
         .sub_state_to_string = service_sub_state_to_string,
 
-        .check_gc = service_check_gc,
+        .may_gc = service_may_gc,
         .check_snapshot = service_check_snapshot,
 
         .sigchld_event = service_sigchld_event,
