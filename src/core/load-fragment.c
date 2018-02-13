@@ -1836,7 +1836,7 @@ int config_parse_socket_service(
                 return 0;
         }
 
-        unit_ref_set(&s->service, x);
+        unit_ref_set(&s->service, UNIT(s), x);
 
         return 0;
 }
@@ -2006,7 +2006,7 @@ int config_parse_busname_service(
                 return 0;
         }
 
-        unit_ref_set(&n->service, x);
+        unit_ref_set(&n->service, UNIT(n), x);
 
         return 0;
 }
@@ -2933,7 +2933,7 @@ int config_parse_unit_slice(
                 return 0;
         }
 
-        unit_ref_set(&u->slice, slice);
+        unit_ref_set(&u->slice, u, slice);
         return 0;
 }
 

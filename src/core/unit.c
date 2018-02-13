@@ -315,7 +315,7 @@ bool unit_may_gc(Unit *u) {
         if (u->no_gc)
                 return false;
 
-        if (u->refs)
+        if (u->refs_by_target)
                 return false;
 
         if (UNIT_VTABLE(u)->may_gc && !UNIT_VTABLE(u)->may_gc(u))
@@ -553,9 +553,8 @@ void unit_free(Unit *u) {
         condition_free_list(u->asserts);
 
         unit_ref_unset(&u->slice);
-
-        while (u->refs)
-                unit_ref_unset(u->refs);
+        while (u->refs_by_target)
+                unit_ref_unset(u->refs_by_target);
 
         free(u);
 }
@@ -737,8 +736,8 @@ int unit_merge(Unit *u, Unit *other) {
                 return r;
 
         /* Redirect all references */
-        while (other->refs)
-                unit_ref_set(other->refs, u);
+        while (other->refs_by_target)
+                unit_ref_set(other->refs_by_target, other->refs_by_target->source, u);
 
         /* Merge dependencies */
         for (d = 0; d < _UNIT_DEPENDENCY_MAX; d++)
@@ -2493,7 +2492,7 @@ int unit_add_default_slice(Unit *u, CGroupContext *c) {
         if (r < 0)
                 return r;
 
-        unit_ref_set(&u->slice, slice);
+        unit_ref_set(&u->slice, u, slice);
         return 0;
 }
 
@@ -3131,30 +3130,32 @@ int unit_get_unit_file_preset(Unit *u) {
         return u->unit_file_preset;
 }
 
-Unit* unit_ref_set(UnitRef *ref, Unit *u) {
+Unit* unit_ref_set(UnitRef *ref, Unit *source, Unit *target) {
         assert(ref);
-        assert(u);
+        assert(source);
+        assert(target);
 
-        if (ref->unit)
+        if (ref->target)
                 unit_ref_unset(ref);
 
-        ref->unit = u;
-        LIST_PREPEND(refs, u->refs, ref);
-        return u;
+        ref->source = source;
+        ref->target = target;
+        LIST_PREPEND(refs_by_target, target->refs_by_target, ref);
+        return target;
 }
 
 void unit_ref_unset(UnitRef *ref) {
         assert(ref);
 
-        if (!ref->unit)
+        if (!ref->target)
                 return;
 
         /* We are about to drop a reference to the unit, make sure the garbage collection has a look at it as it might
          * be unreferenced now. */
-        unit_add_to_gc_queue(ref->unit);
+        unit_add_to_gc_queue(ref->target);
 
-        LIST_REMOVE(refs, ref->unit->refs, ref);
-        ref->unit = NULL;
+        LIST_REMOVE(refs_by_target, ref->target->refs_by_target, ref);
+        ref->source = ref->target = NULL;
 }
 
 int unit_patch_contexts(Unit *u) {
