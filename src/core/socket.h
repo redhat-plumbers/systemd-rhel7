@@ -114,8 +114,8 @@ struct Socket {
         ExecRuntime *exec_runtime;
 
         /* For Accept=no sockets refers to the one service we'll
-        activate. For Accept=yes sockets is either NULL, or filled
-        when the next service we spawn. */
+         * activate. For Accept=yes sockets is either NULL, or filled
+         * to refer to the next service we spawn. */
         UnitRef service;
 
         SocketState state, deserialized_state;
