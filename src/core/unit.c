@@ -288,7 +288,11 @@ bool unit_may_gc(Unit *u) {
 
         /* Checks whether the unit is ready to be unloaded for garbage collection.
          * Returns true when the unit may be collected, and false if there's some
-         * reason to keep it loaded. */
+         * reason to keep it loaded.
+         *
+         * References from other units are *not* checked here. Instead, this is done
+         * in unit_gc_sweep(), but using markers to properly collect dependency loops.
+         */
 
         if (u->job)
                 return false;
@@ -313,9 +317,6 @@ bool unit_may_gc(Unit *u) {
                 return false;
 
         if (u->no_gc)
-                return false;
-
-        if (u->refs_by_target)
                 return false;
 
         if (UNIT_VTABLE(u)->may_gc && !UNIT_VTABLE(u)->may_gc(u))
