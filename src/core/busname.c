@@ -175,7 +175,7 @@ static int busname_add_extras(BusName *n) {
                         if (r < 0)
                                 return r;
 
-                        unit_ref_set(&n->service, x);
+                        unit_ref_set(&n->service, u, x);
                 }
 
                 r = unit_add_two_dependencies(u, UNIT_BEFORE, UNIT_TRIGGERS, UNIT_DEREF(n->service), true);
