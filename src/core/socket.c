@@ -2269,12 +2269,12 @@ const char* socket_port_type_to_string(SocketPort *p) {
         }
 }
 
-_pure_ static bool socket_check_gc(Unit *u) {
+_pure_ static bool socket_may_gc(Unit *u) {
         Socket *s = SOCKET(u);
 
         assert(u);
 
-        return s->n_connections > 0;
+        return s->n_connections == 0;
 }
 
 static int socket_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
@@ -2713,7 +2713,7 @@ const UnitVTable socket_vtable = {
         .active_state = socket_active_state,
         .sub_state_to_string = socket_sub_state_to_string,
 
-        .check_gc = socket_check_gc,
+        .may_gc = socket_may_gc,
 
         .sigchld_event = socket_sigchld_event,
 
