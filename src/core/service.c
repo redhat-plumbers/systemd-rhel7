@@ -3299,7 +3299,7 @@ int service_set_socket_fd(Service *s, int fd, Socket *sock, bool selinux_context
         s->socket_fd = fd;
         s->socket_fd_selinux_context_net = selinux_context_net;
 
-        unit_ref_set(&s->accept_socket, UNIT(sock));
+        unit_ref_set(&s->accept_socket, UNIT(s), UNIT(sock));
 
         return unit_add_two_dependencies(UNIT(sock), UNIT_BEFORE, UNIT_TRIGGERS, UNIT(s), false);
 }
