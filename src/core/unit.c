@@ -506,23 +506,6 @@ void unit_free(Unit *u) {
         for (d = 0; d < _UNIT_DEPENDENCY_MAX; d++)
                 bidi_set_free(u, u->dependencies[d]);
 
-        if (u->type != _UNIT_TYPE_INVALID)
-                LIST_REMOVE(units_by_type, u->manager->units_by_type[u->type], u);
-
-        if (u->in_load_queue)
-                LIST_REMOVE(load_queue, u->manager->load_queue, u);
-
-        if (u->in_dbus_queue)
-                LIST_REMOVE(dbus_queue, u->manager->dbus_unit_queue, u);
-
-        if (u->in_cleanup_queue)
-                LIST_REMOVE(cleanup_queue, u->manager->cleanup_queue, u);
-
-        if (u->in_gc_queue) {
-                LIST_REMOVE(gc_queue, u->manager->gc_queue, u);
-                u->manager->n_in_gc_queue--;
-        }
-
         if (u->in_target_deps_queue)
                 LIST_REMOVE(target_deps_queue, u->manager->target_deps_queue, u);
 
@@ -542,6 +525,23 @@ void unit_free(Unit *u) {
         unit_ref_unset(&u->slice);
         while (u->refs_by_target)
                 unit_ref_unset(u->refs_by_target);
+
+        if (u->type != _UNIT_TYPE_INVALID)
+                LIST_REMOVE(units_by_type, u->manager->units_by_type[u->type], u);
+
+        if (u->in_load_queue)
+                LIST_REMOVE(load_queue, u->manager->load_queue, u);
+
+        if (u->in_dbus_queue)
+                LIST_REMOVE(dbus_queue, u->manager->dbus_unit_queue, u);
+
+        if (u->in_cleanup_queue)
+                LIST_REMOVE(cleanup_queue, u->manager->cleanup_queue, u);
+
+        if (u->in_gc_queue) {
+                LIST_REMOVE(gc_queue, u->manager->gc_queue, u);
+                u->manager->n_in_gc_queue--;
+        }
 
         condition_free_list(u->conditions);
         condition_free_list(u->asserts);
