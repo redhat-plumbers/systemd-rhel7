@@ -117,6 +117,9 @@ struct Manager {
         /* Target units whose default target dependencies haven't been set yet */
         LIST_HEAD(Unit, target_deps_queue);
 
+        /* Units that might be subject to StopWhenUnneeded= clean-up */
+        LIST_HEAD(Unit, stop_when_unneeded_queue);
+
         sd_event *event;
 
         /* We use two hash tables here, since the same PID might be
