@@ -172,6 +172,9 @@ struct Unit {
         /* Target dependencies queue */
         LIST_FIELDS(Unit, target_deps_queue);
 
+        /* Queue of units with StopWhenUnneeded set that shell be checked for clean-up. */
+        LIST_FIELDS(Unit, stop_when_unneeded_queue);
+
         /* PIDs we keep an eye on. Note that a unit might have many
          * more, but these are the ones we care enough about to
          * process SIGCHLD for */
@@ -245,6 +248,7 @@ struct Unit {
         bool in_gc_queue:1;
         bool in_cgroup_queue:1;
         bool in_target_deps_queue:1;
+        bool in_stop_when_unneeded_queue:1;
 
         bool sent_dbus_new_signal:1;
 
@@ -518,6 +522,7 @@ void unit_add_to_dbus_queue(Unit *u);
 void unit_add_to_cleanup_queue(Unit *u);
 void unit_add_to_gc_queue(Unit *u);
 void unit_add_to_target_deps_queue(Unit *u);
+void unit_add_to_stop_when_unneeded_queue(Unit *u);
 
 int unit_merge(Unit *u, Unit *other);
 int unit_merge_by_name(Unit *u, const char *other);
@@ -636,6 +641,8 @@ int unit_kill_context(Unit *u, KillContext *c, KillOperation k, pid_t main_pid, 
 int unit_make_transient(Unit *u);
 
 int unit_require_mounts_for(Unit *u, const char *path);
+
+bool unit_is_unneeded(Unit *u);
 
 pid_t unit_control_pid(Unit *u);
 pid_t unit_main_pid(Unit *u);
