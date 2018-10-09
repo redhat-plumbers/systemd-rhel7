@@ -998,9 +998,8 @@ Manager* manager_free(Manager *m) {
                 if (unit_vtable[c]->shutdown)
                         unit_vtable[c]->shutdown(m);
 
-        /* If we reexecute ourselves, we keep the root cgroup
-         * around */
-        manager_shutdown_cgroup(m, m->exit_code != MANAGER_REEXECUTE);
+        /* Keep the cgroup hierarchy in place except when we know we are going down for good */
+        manager_shutdown_cgroup(m, IN_SET(m->exit_code, MANAGER_EXIT, MANAGER_REBOOT, MANAGER_POWEROFF, MANAGER_HALT, MANAGER_KEXEC));
 
         manager_undo_generators(m);
 
