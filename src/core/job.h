@@ -172,7 +172,6 @@ struct Job {
         bool sent_dbus_new_signal:1;
         bool ignore_order:1;
         bool irreversible:1;
-        bool reloaded:1;
 };
 
 Job* job_new(Unit *unit, JobType type);

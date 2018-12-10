@@ -54,7 +54,6 @@ Job* job_new_raw(Unit *unit) {
         j->manager = unit->manager;
         j->unit = unit;
         j->type = _JOB_TYPE_INVALID;
-        j->reloaded = false;
 
         return j;
 }
@@ -263,7 +262,6 @@ int job_install_deserialized(Job *j) {
 
         *pj = j;
         j->installed = true;
-        j->reloaded = true;
 
         if (j->state == JOB_RUNNING)
                 j->unit->manager->n_running_jobs++;
@@ -808,19 +806,6 @@ static void job_emit_status_message(Unit *u, JobType t, JobResult result) {
                 job_print_status_message(u, t, result);
 }
 
-static int job_save_pending_finished_job(Job *j) {
-        int r;
-
-        assert(j);
-
-        r = set_ensure_allocated(&j->manager->pending_finished_jobs, NULL);
-        if (r < 0)
-                return r;
-
-        job_unlink(j);
-        return set_put(j->manager->pending_finished_jobs, j);
-}
-
 int job_finish_and_invalidate(Job *j, JobResult result, bool recursive, bool already) {
         Unit *u;
         Unit *other;
@@ -860,12 +845,7 @@ int job_finish_and_invalidate(Job *j, JobResult result, bool recursive, bool alr
                 j->manager->n_failed_jobs ++;
 
         job_uninstall(j);
-        /* Remember jobs started before the reload */
-        if (j->manager->n_reloading > 0 && j->reloaded) {
-                if (job_save_pending_finished_job(j) < 0)
-                        job_free(j);
-        } else
-                job_free(j);
+        job_free(j);
 
         /* Fail depending jobs on failure */
         if (result != JOB_DONE && recursive) {
