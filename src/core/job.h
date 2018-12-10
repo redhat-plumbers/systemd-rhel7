@@ -230,6 +230,8 @@ char *job_dbus_path(Job *j);
 
 void job_shutdown_magic(Job *j);
 
+DEFINE_TRIVIAL_CLEANUP_FUNC(Job*, job_free);
+
 const char* job_type_to_string(JobType t) _const_;
 JobType job_type_from_string(const char *s) _pure_;
 

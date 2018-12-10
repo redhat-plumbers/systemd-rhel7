@@ -2704,6 +2704,29 @@ void unit_serialize_item(Unit *u, FILE *f, const char *key, const char *value) {
         fprintf(f, "%s=%s\n", key, value);
 }
 
+static int unit_deserialize_job(Unit *u, FILE *f) {
+        _cleanup_(job_freep) Job *j = NULL;
+        int r;
+
+        assert(u);
+        assert(f);
+
+        j = job_new_raw(u);
+        if (!j)
+                return log_oom();
+
+        r = job_deserialize(j, f, NULL);
+        if (r < 0)
+                return r;
+
+        r = job_install_deserialized(j);
+        if (r < 0)
+                return r;
+
+        j = NULL;
+        return 0;
+}
+
 int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
         ExecRuntime **rt = NULL;
         size_t offset;
@@ -2743,31 +2766,10 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
 
                 if (streq(l, "job")) {
                         if (v[0] == '\0') {
-                                /* new-style serialized job */
-                                Job *j;
-
-                                j = job_new_raw(u);
-                                if (!j)
-                                        return -ENOMEM;
-
-                                r = job_deserialize(j, f, fds);
-                                if (r < 0) {
-                                        job_free(j);
+                                /* New-style serialized job */
+                                r = unit_deserialize_job(u, f);
+                                if (r < 0)
                                         return r;
-                                }
-
-                                r = hashmap_put(u->manager->jobs, UINT32_TO_PTR(j->id), j);
-                                if (r < 0) {
-                                        job_free(j);
-                                        return r;
-                                }
-
-                                r = job_install_deserialized(j);
-                                if (r < 0) {
-                                        hashmap_remove(u->manager->jobs, UINT32_TO_PTR(j->id));
-                                        job_free(j);
-                                        return r;
-                                }
                         } else {
                                 /* legacy */
                                 JobType type;
