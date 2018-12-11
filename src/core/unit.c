@@ -1869,7 +1869,6 @@ static bool unit_process_job(Job *j, UnitActiveState ns, bool reload_success) {
 
 void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_success) {
         Manager *m;
-        bool unexpected;
 
         assert(u);
         assert(os < _UNIT_ACTIVE_STATE_MAX);
@@ -1912,20 +1911,18 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
 
         unit_update_on_console(u);
 
-        /* Let's propagate state changes to the job */
-        if (u->job)
-                unexpected = unit_process_job(u->job, ns, reload_success);
-        else
-                unexpected = true;
-
         if (m->n_reloading <= 0) {
+                bool unexpected;
 
-                /* If this state change happened without being
-                 * requested by a job, then let's retroactively start
-                 * or stop dependencies. We skip that step when
-                 * deserializing, since we don't want to create any
-                 * additional jobs just because something is already
-                 * activated. */
+                /* Let's propagate state changes to the job */
+                if (u->job)
+                        unexpected = unit_process_job(u->job, ns, reload_success);
+                else
+                        unexpected = true;
+
+                /* If this state change happened without being requested by a job, then let's retroactively start or
+                 * stop dependencies. We skip that step when deserializing, since we don't want to create any
+                 * additional jobs just because something is already activated. */
 
                 if (unexpected) {
                         if (UNIT_IS_INACTIVE_OR_FAILED(os) && UNIT_IS_ACTIVE_OR_ACTIVATING(ns))
