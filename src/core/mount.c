@@ -659,7 +659,7 @@ static int mount_coldplug(Unit *u, Hashmap *deferred_work) {
                 if (m->control_pid <= 0)
                         return -EBADMSG;
 
-                r = unit_watch_pid(UNIT(m), m->control_pid);
+                r = unit_watch_pid(UNIT(m), m->control_pid, false);
                 if (r < 0)
                         return r;
 
@@ -751,7 +751,7 @@ static int mount_spawn(Mount *m, ExecCommand *c, pid_t *_pid) {
         if (r < 0)
                 goto fail;
 
-        r = unit_watch_pid(UNIT(m), pid);
+        r = unit_watch_pid(UNIT(m), pid, true);
         if (r < 0)
                 /* FIXME: we need to do something here */
                 goto fail;

@@ -26,6 +26,7 @@
 #include "special.h"
 #include "cgroup-util.h"
 #include "cgroup.h"
+#include "util.h"
 
 #define CGROUP_CPU_QUOTA_PERIOD_USEC ((usec_t) 100 * USEC_PER_MSEC)
 
@@ -881,7 +882,7 @@ void unit_destroy_cgroup_if_empty(Unit *u) {
 
 pid_t unit_search_main_pid(Unit *u) {
         _cleanup_fclose_ FILE *f = NULL;
-        pid_t pid = 0, npid, mypid;
+        pid_t pid = 0, npid;
 
         assert(u);
 
@@ -891,15 +892,12 @@ pid_t unit_search_main_pid(Unit *u) {
         if (cg_enumerate_processes(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, &f) < 0)
                 return 0;
 
-        mypid = getpid();
         while (cg_read_pid(f, &npid) > 0)  {
-                pid_t ppid;
-
                 if (npid == pid)
                         continue;
 
                 /* Ignore processes that aren't our kids */
-                if (get_parent_of_pid(npid, &ppid) >= 0 && ppid != mypid)
+                if (pid_is_my_child(npid) == 0)
                         continue;
 
                 if (pid != 0) {

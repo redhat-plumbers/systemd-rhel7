@@ -145,8 +145,6 @@ static void service_unwatch_pid_file(Service *s) {
 }
 
 static int service_set_main_pid(Service *s, pid_t pid) {
-        pid_t ppid;
-
         assert(s);
 
         if (pid <= 1)
@@ -165,12 +163,10 @@ static int service_set_main_pid(Service *s, pid_t pid) {
 
         s->main_pid = pid;
         s->main_pid_known = true;
+        s->main_pid_alien = pid_is_my_child(pid) == 0;
 
-        if (get_parent_of_pid(pid, &ppid) >= 0 && ppid != getpid()) {
+        if (s->main_pid_alien)
                 log_unit_warning(UNIT(s)->id, "%s: Supervising process "PID_FMT" which is not our child. We'll most likely not notice when it exits.", UNIT(s)->id, pid);
-                s->main_pid_alien = true;
-        } else
-                s->main_pid_alien = false;
 
         return 0;
 }
@@ -809,7 +805,7 @@ static int service_load_pid_file(Service *s, bool may_warn) {
         if (r < 0)
                 return r;
 
-        r = unit_watch_pid(UNIT(s), pid);
+        r = unit_watch_pid(UNIT(s), pid, false);
         if (r < 0) {
                 /* FIXME: we need to do something here */
                 log_unit_warning(UNIT(s)->id, "Failed to watch PID "PID_FMT" from service %s", pid, UNIT(s)->id);
@@ -844,7 +840,7 @@ static int service_search_main_pid(Service *s) {
         if (r < 0)
                 return r;
 
-        r = unit_watch_pid(UNIT(s), pid);
+        r = unit_watch_pid(UNIT(s), pid, false);
         if (r < 0) {
                 /* FIXME: we need to do something here */
                 log_unit_warning(UNIT(s)->id, "Failed to watch PID "PID_FMT" from service %s", pid, UNIT(s)->id);
@@ -989,7 +985,7 @@ static int service_coldplug(Unit *u, Hashmap *deferred_work) {
                             SERVICE_STOP, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL,
                             SERVICE_STOP_SIGABRT, SERVICE_STOP_POST,
                             SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL))) {
-                        r = unit_watch_pid(UNIT(s), s->main_pid);
+                        r = unit_watch_pid(UNIT(s), s->main_pid, false);
                         if (r < 0)
                                 return r;
                 }
@@ -1001,7 +997,7 @@ static int service_coldplug(Unit *u, Hashmap *deferred_work) {
                            SERVICE_STOP, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL,
                            SERVICE_STOP_SIGABRT, SERVICE_STOP_POST,
                            SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL)) {
-                        r = unit_watch_pid(UNIT(s), s->control_pid);
+                        r = unit_watch_pid(UNIT(s), s->control_pid, false);
                         if (r < 0)
                                 return r;
                 }
@@ -1271,7 +1267,7 @@ static int service_spawn(
         if (r < 0)
                 goto fail;
 
-        r = unit_watch_pid(UNIT(s), pid);
+        r = unit_watch_pid(UNIT(s), pid, true);
         if (r < 0)
                 /* FIXME: we need to do something here */
                 goto fail;
@@ -2325,7 +2321,7 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                         log_unit_debug(u->id, "Failed to parse main-pid value %s", value);
                 else {
                         service_set_main_pid(s, pid);
-                        unit_watch_pid(UNIT(s), pid);
+                        unit_watch_pid(UNIT(s), pid, false);
                 }
         } else if (streq(key, "main-pid-known")) {
                 int b;
@@ -3085,7 +3081,7 @@ static void service_notify_message(
                         }
                         if (r > 0) {
                                 service_set_main_pid(s, new_main_pid);
-                                unit_watch_pid(UNIT(s), new_main_pid);
+                                unit_watch_pid(UNIT(s), new_main_pid, false);
                                 notify_dbus = true;
                         }
                 }
@@ -3265,7 +3261,7 @@ static void service_bus_name_owner_change(
                         log_unit_debug(u->id, "%s's D-Bus name %s is now owned by process %u", u->id, name, (unsigned) pid);
 
                         service_set_main_pid(s, pid);
-                        unit_watch_pid(UNIT(s), pid);
+                        unit_watch_pid(UNIT(s), pid, false);
                 }
         }
 }

@@ -52,6 +52,7 @@
 #include "execute.h"
 #include "virt.h"
 #include "dropin.h"
+#include "util.h"
 
 const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX] = {
         [UNIT_SERVICE] = &service_vtable,
@@ -1961,7 +1962,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
         unit_add_to_gc_queue(u);
 }
 
-int unit_watch_pid(Unit *u, pid_t pid) {
+int unit_watch_pid(Unit *u, pid_t pid, bool exclusive) {
         int q, r;
 
         assert(u);
@@ -1969,6 +1970,15 @@ int unit_watch_pid(Unit *u, pid_t pid) {
 
         /* Watch a specific PID. We only support one or two units
          * watching each PID for now, not more. */
+
+        /* Caller might be sure that this PID belongs to this unit only. Let's take this
+         * opportunity to remove any stalled references to this PID as they can be created
+         * easily (when watching a process which is not our direct child). */
+        if (exclusive) {
+                log_unit_debug(u->id, "Cleaning "PID_FMT" from watches.", pid);
+                hashmap_remove2(u->manager->watch_pids1, LONG_TO_PTR(pid), NULL);
+                hashmap_remove2(u->manager->watch_pids2, LONG_TO_PTR(pid), NULL);
+        }
 
         r = set_ensure_allocated(&u->pids, NULL);
         if (r < 0)
@@ -1985,7 +1995,12 @@ int unit_watch_pid(Unit *u, pid_t pid) {
                         return r;
 
                 r = hashmap_put(u->manager->watch_pids2, LONG_TO_PTR(pid), u);
-        }
+                if (r >= 0)
+                        log_unit_debug(u->id, "Watching "PID_FMT" through watch_pids2.", pid);
+                else if (r == -EEXIST)
+                        log_unit_warning(u->id, "Cannot watch "PID_FMT", PID is already watched twice.", pid);
+        } else if (r >= 0)
+                log_unit_debug(u->id, "Watching "PID_FMT" through watch_pids1.", pid);
 
         q = set_put(u->pids, LONG_TO_PTR(pid));
         if (q < 0)
@@ -1997,6 +2012,8 @@ int unit_watch_pid(Unit *u, pid_t pid) {
 void unit_unwatch_pid(Unit *u, pid_t pid) {
         assert(u);
         assert(pid >= 1);
+
+        log_unit_debug(u->id, "Unwatching "PID_FMT".", pid);
 
         hashmap_remove_value(u->manager->watch_pids1, LONG_TO_PTR(pid), u);
         hashmap_remove_value(u->manager->watch_pids2, LONG_TO_PTR(pid), u);
@@ -2028,7 +2045,9 @@ static int unit_watch_pids_in_path(Unit *u, const char *path) {
                 pid_t pid;
 
                 while ((r = cg_read_pid(f, &pid)) > 0) {
-                        r = unit_watch_pid(u, pid);
+                        if (pid_is_my_child(pid) == 0)
+                                log_unit_debug(u->id, "Watching non detached "PID_FMT".", pid);
+                        r = unit_watch_pid(u, pid, false);
                         if (r < 0 && ret >= 0)
                                 ret = r;
                 }

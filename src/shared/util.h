@@ -279,6 +279,7 @@ const char* split(const char **state, size_t *l, const char *separator, bool quo
         for ((state) = (s), (word) = split(&(state), &(length), (separator), (quoted)); (word); (word) = split(&(state), &(length), (separator), (quoted)))
 
 pid_t get_parent_of_pid(pid_t pid, pid_t *ppid);
+int pid_is_my_child(pid_t pid);
 
 char *strappend(const char *s, const char *suffix);
 char *strnappend(const char *s, const char *suffix, size_t length);
