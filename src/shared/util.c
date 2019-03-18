@@ -641,6 +641,20 @@ int get_parent_of_pid(pid_t pid, pid_t *_ppid) {
         return 0;
 }
 
+int pid_is_my_child(pid_t pid) {
+        pid_t ppid;
+        int r;
+
+        if (pid <= 1)
+                return false;
+
+        r = get_parent_of_pid(pid, &ppid);
+        if (r < 0)
+                return r;
+
+        return ppid == getpid();
+}
+
 int fchmod_umask(int fd, mode_t m) {
         mode_t u;
         int r;

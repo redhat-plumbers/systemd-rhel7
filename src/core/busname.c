@@ -350,7 +350,7 @@ static int busname_coldplug(Unit *u, Hashmap *deferred_work) {
                 if (n->control_pid <= 0)
                         return -EBADMSG;
 
-                r = unit_watch_pid(UNIT(n), n->control_pid);
+                r = unit_watch_pid(UNIT(n), n->control_pid, false);
                 if (r < 0)
                         return r;
 
@@ -413,7 +413,7 @@ static int busname_make_starter(BusName *n, pid_t *_pid) {
                 _exit(ret);
         }
 
-        r = unit_watch_pid(UNIT(n), pid);
+        r = unit_watch_pid(UNIT(n), pid, true);
         if (r < 0)
                 goto fail;
 

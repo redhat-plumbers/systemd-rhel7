@@ -1350,7 +1350,7 @@ static int socket_coldplug(Unit *u, Hashmap *deferred_work) {
                 if (s->control_pid <= 0)
                         return -EBADMSG;
 
-                r = unit_watch_pid(UNIT(s), s->control_pid);
+                r = unit_watch_pid(UNIT(s), s->control_pid, false);
                 if (r < 0)
                         return r;
 
@@ -1427,7 +1427,7 @@ static int socket_spawn(Socket *s, ExecCommand *c, pid_t *_pid) {
         if (r < 0)
                 goto fail;
 
-        r = unit_watch_pid(UNIT(s), pid);
+        r = unit_watch_pid(UNIT(s), pid, true);
         if (r < 0)
                 /* FIXME: we need to do something here */
                 goto fail;
@@ -1512,7 +1512,7 @@ static int socket_chown(Socket *s, pid_t *_pid) {
                 _exit(ret);
         }
 
-        r = unit_watch_pid(UNIT(s), pid);
+        r = unit_watch_pid(UNIT(s), pid, true);
         if (r < 0)
                 goto fail;
 

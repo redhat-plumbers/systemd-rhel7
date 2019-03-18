@@ -537,7 +537,7 @@ int unit_kill_common(Unit *u, KillWho who, int signo, pid_t main_pid, pid_t cont
 
 void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_success);
 
-int unit_watch_pid(Unit *u, pid_t pid);
+int unit_watch_pid(Unit *u, pid_t pid, bool exclusive);
 void unit_unwatch_pid(Unit *u, pid_t pid);
 int unit_watch_all_pids(Unit *u);
 void unit_unwatch_all_pids(Unit *u);
