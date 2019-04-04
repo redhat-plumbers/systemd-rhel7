@@ -44,6 +44,7 @@
 #include <mntent.h>
 #include <sys/socket.h>
 #include <sys/inotify.h>
+#include <sys/sysmacros.h>
 #include <glob.h>
 
 #if SIZEOF_PID_T == 4
