@@ -3046,7 +3046,7 @@ static void service_notify_message(
         if (!service_notify_message_authorized(SERVICE(u), ucred->pid, tags, fds))
                 return;
 
-        if (s->notify_access == NOTIFY_NONE) {
+        if (_unlikely_(log_get_max_level() >= LOG_DEBUG)) {
                 _cleanup_free_ char *cc = NULL;
 
                 cc = strv_join(tags, ", ");
