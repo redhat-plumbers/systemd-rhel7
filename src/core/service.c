@@ -750,9 +750,9 @@ static int service_load_pid_file(Service *s, bool may_warn) {
 
         fd = chase_symlinks(s->pid_file, NULL, CHASE_OPEN|CHASE_SAFE, NULL);
         if (fd == -EPERM)
-                return log_unit_full(UNIT(s)->id, prio, "Permission denied while opening PID file or unsafe symlink chain: %s", s->pid_file);
+                return log_unit_full_errno(UNIT(s)->id, prio, fd, "Permission denied while opening PID file or unsafe symlink chain: %s", s->pid_file);
         if (fd < 0)
-                return log_unit_full(UNIT(s)->id, prio, "Can't open PID file %s (yet?) after %s: %m", s->pid_file, service_state_to_string(s->state));
+                return log_unit_full_errno(UNIT(s)->id, prio, fd, "Can't open PID file %s (yet?) after %s: %m", s->pid_file, service_state_to_string(s->state));
 
         /* Let's read the PID file now that we chased it down. But we need to convert the O_PATH fd chase_symlinks() returned us into a proper fd first. */
         xsprintf(procfs, "/proc/self/fd/%i", fd);
@@ -762,7 +762,7 @@ static int service_load_pid_file(Service *s, bool may_warn) {
 
         r = parse_pid(k, &pid);
         if (r < 0)
-                return log_unit_full(UNIT(s)->id, prio, "Failed to parse PID from file %s: %m", s->pid_file);
+                return log_unit_full_errno(UNIT(s)->id, prio, r, "Failed to parse PID from file %s: %m", s->pid_file);
 
         if (s->main_pid_known && pid == s->main_pid)
                 return 0;
