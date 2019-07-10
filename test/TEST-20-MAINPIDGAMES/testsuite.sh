@@ -175,12 +175,10 @@ ExecStart=/dev/shm/mainpid3.sh
 EOF
 
 systemctl daemon-reload
-systemctl start mainpidsh3.service
+! systemctl start mainpidsh3.service
 
 # Test that this failed due to timeout, and not some other error
-# test `systemctl_show_value -p Result mainpidsh3.service` = timeout
-# Just check that there is no MainPID => the pid file was ignored
-test `systemctl_show_value -p MainPID mainpidsh3.service` -eq 0
+test `systemctl_show_value -p Result mainpidsh3.service` = timeout
 
 systemd-analyze set-log-level info
 
