@@ -5083,7 +5083,7 @@ int get_group_creds(const char **groupname, gid_t *gid) {
 
 int in_gid(gid_t gid) {
         gid_t *gids;
-        int ngroups_max, r, i;
+        int ngroups, r, i;
 
         if (getgid() == gid)
                 return 1;
@@ -5091,12 +5091,15 @@ int in_gid(gid_t gid) {
         if (getegid() == gid)
                 return 1;
 
-        ngroups_max = sysconf(_SC_NGROUPS_MAX);
-        assert(ngroups_max > 0);
+        ngroups = getgroups(0, NULL);
+        if (ngroups < 0)
+                return -errno;
+        if (ngroups == 0)
+                return 0;
 
-        gids = alloca(sizeof(gid_t) * ngroups_max);
+        gids = alloca(sizeof(gid_t) * ngroups);
 
-        r = getgroups(ngroups_max, gids);
+        r = getgroups(ngroups, gids);
         if (r < 0)
                 return -errno;
 
