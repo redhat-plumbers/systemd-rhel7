@@ -6,11 +6,16 @@ export PATH
 
 KERNEL_VER=${KERNEL_VER-$(uname -r)}
 KERNEL_MODS="/lib/modules/$KERNEL_VER/"
+QEMU_TIMEOUT="${QEMU_TIMEOUT:-infinity}"
+NSPAWN_TIMEOUT="${NSPAWN_TIMEOUT:-infinity}"
 
 if ! ROOTLIBDIR=$(pkg-config --variable=systemdutildir systemd); then
     echo "WARNING! Cannot determine rootlibdir from pkg-config, assuming /usr/lib/systemd" >&2
     ROOTLIBDIR=/usr/lib/systemd
 fi
+
+PATH_TO_INIT=$ROOTLIBDIR/systemd
+[ "$SYSTEMD_NSPAWN" ] || SYSTEMD_NSPAWN=$(which -a $BUILD_DIR/systemd-nspawn systemd-nspawn 2>/dev/null | grep '^/' -m1)
 
 BASICTOOLS="test sh bash setsid loadkeys setfont login sulogin gzip sleep echo mount umount cryptsetup date dmsetup modprobe chmod chown ln"
 DEBUGTOOLS="df free ls stty cat ps ln ip route dmesg dhclient mkdir cp ping dhclient strace less grep id tty touch du sort hostname"
@@ -79,13 +84,19 @@ $KERNEL_APPEND \
         QEMU_OPTIONS="$QEMU_OPTIONS -initrd $INITRD"
     fi
 
+    if [[ "$QEMU_TIMEOUT" != "infinity" ]]; then
+        QEMU_BIN="timeout -k 60s --foreground $QEMU_TIMEOUT $QEMU_BIN"
+    fi
     ( set -x
       $QEMU_BIN $QEMU_OPTIONS -append "$KERNEL_APPEND" $TESTDIR/rootdisk.img ) || return 1
 }
 
 run_nspawn() {
-    set -x
-    ../../systemd-nspawn --boot --directory=$TESTDIR/nspawn-root $ROOTLIBDIR/systemd $KERNEL_APPEND
+    local _nspawn_cmd="../../systemd-nspawn --boot --directory=$TESTDIR/nspawn-root $ROOTLIBDIR/systemd $KERNEL_APPEND"
+    if [[ "$NSPAWN_TIMEOUT" != "infinity" ]]; then
+        _nspawn_cmd="timeout -k 60s --foreground $NSPAWN_TIMEOUT $_nspawn_cmd"
+    fi
+    (set -x; $_nspawn_cmd) || return 1
 }
 
 setup_basic_environment() {
