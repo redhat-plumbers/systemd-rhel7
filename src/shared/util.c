@@ -1937,6 +1937,7 @@ bool fstype_is_network(const char *fstype) {
         static const char table[] =
                 "afs\0"
                 "cifs\0"
+                "smb3\0"
                 "smbfs\0"
                 "sshfs\0"
                 "ncpfs\0"
