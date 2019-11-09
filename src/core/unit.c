@@ -2882,6 +2882,7 @@ static int unit_add_deserialized_job_coldplug(Unit *u) {
 
 int unit_coldplug(Unit *u, Hashmap *deferred_work) {
         int r;
+        Job *uj;
 
         assert(u);
 
@@ -2889,8 +2890,9 @@ int unit_coldplug(Unit *u, Hashmap *deferred_work) {
                 if ((r = UNIT_VTABLE(u)->coldplug(u, deferred_work)) < 0)
                         return r;
 
-        if (u->job) {
-                r = job_coldplug(u->job);
+        uj = u->job ?: u->nop_job;
+        if (uj) {
+                r = job_coldplug(uj);
                 if (r < 0)
                         return r;
         } else if (u->deserialized_job >= 0)
