@@ -514,7 +514,7 @@ void unit_free(Unit *u) {
 
         if (u->cgroup_path) {
                 hashmap_remove(u->manager->cgroup_unit, u->cgroup_path);
-                free(u->cgroup_path);
+                u->cgroup_path = mfree(u->cgroup_path);
         }
 
         set_remove(u->manager->failed_units, u);
