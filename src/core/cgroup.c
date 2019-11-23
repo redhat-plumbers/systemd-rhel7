@@ -874,8 +874,7 @@ void unit_destroy_cgroup_if_empty(Unit *u) {
 
         hashmap_remove(u->manager->cgroup_unit, u->cgroup_path);
 
-        free(u->cgroup_path);
-        u->cgroup_path = NULL;
+        u->cgroup_path = mfree(u->cgroup_path);
         u->cgroup_realized = false;
         u->cgroup_realized_mask = 0;
 }
