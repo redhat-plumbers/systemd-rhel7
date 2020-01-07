@@ -129,7 +129,8 @@ int journal_file_set_offline(JournalFile *f) {
 }
 
 void journal_file_close(JournalFile *f) {
-        assert(f);
+        if (!f)
+                return;
 
 #ifdef HAVE_GCRYPT
         /* Write the final tag */
