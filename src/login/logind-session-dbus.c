@@ -213,13 +213,25 @@ static int method_terminate(sd_bus *bus, sd_bus_message *message, void *userdata
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_activate(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+int bus_session_method_activate(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Session *s = userdata;
         int r;
 
         assert(bus);
         assert(message);
         assert(s);
+
+        r = bus_verify_polkit_async(
+                        message,
+                        CAP_SYS_ADMIN,
+                        "org.freedesktop.login1.chvt",
+                        false,
+                        &s->manager->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
 
         r = session_activate(s);
         if (r < 0)
@@ -506,7 +518,7 @@ const sd_bus_vtable session_vtable[] = {
         SD_BUS_PROPERTY("LockedHint", "b", property_get_locked_hint, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
 
         SD_BUS_METHOD("Terminate", NULL, NULL, method_terminate, SD_BUS_VTABLE_CAPABILITY(CAP_KILL)),
-        SD_BUS_METHOD("Activate", NULL, NULL, method_activate, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("Activate", NULL, NULL, bus_session_method_activate, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("Lock", NULL, NULL, method_lock, 0),
         SD_BUS_METHOD("Unlock", NULL, NULL, method_lock, 0),
         SD_BUS_METHOD("SetIdleHint", "b", NULL, method_set_idle_hint, SD_BUS_VTABLE_UNPRIVILEGED),
