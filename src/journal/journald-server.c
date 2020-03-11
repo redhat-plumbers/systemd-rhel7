@@ -311,7 +311,7 @@ static bool flushed_flag_is_set(void) {
         return access("/run/systemd/journal/flushed", F_OK) >= 0;
 }
 
-static int system_journal_open(Server *s, bool flush_requested) {
+static int system_journal_open(Server *s, bool flush_requested, bool verbose) {
         int r;
         char *fn;
         sd_id128_t machine;
@@ -344,7 +344,7 @@ static int system_journal_open(Server *s, bool flush_requested) {
 
                 if (r >= 0) {
                         server_fix_perms(s, s->system_journal, 0);
-                        available_space(s, true);
+                        available_space(s, verbose);
                 } else {
                         if (r != -ENOENT && r != -EROFS)
                                 log_warning_errno(r, "Failed to open system journal: %m");
@@ -406,7 +406,7 @@ static int system_journal_open(Server *s, bool flush_requested) {
 
                 if (s->runtime_journal) {
                         server_fix_perms(s, s->runtime_journal, 0);
-                        available_space(s, true);
+                        available_space(s, verbose);
                 }
         }
 
@@ -430,7 +430,7 @@ static JournalFile* find_journal(Server *s, uid_t uid) {
          * else that's left the journals as NULL).
          *
          * Fixes https://github.com/systemd/systemd/issues/3968 */
-        (void) system_journal_open(s, false);
+        (void) system_journal_open(s, false, false);
 
         /* We split up user logs only on /var, not on /run. If the
          * runtime file is open, we write to it exclusively, in order
@@ -1132,7 +1132,7 @@ int server_flush_to_var(Server *s, bool require_flag_file) {
         if (require_flag_file && !flushed_flag_is_set())
                 return 0;
 
-        system_journal_open(s, true);
+        system_journal_open(s, true, true);
 
         if (!s->system_journal)
                 return 0;
@@ -1903,7 +1903,7 @@ int server_init(Server *s) {
 
         (void) server_connect_notify(s);
 
-        r = system_journal_open(s, false);
+        r = system_journal_open(s, false, true);
         if (r < 0)
                 return r;
 
