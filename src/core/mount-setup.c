@@ -369,7 +369,7 @@ static int relabel_cgroup_filesystems(void) {
 }
 #endif
 
-int mount_setup(bool loaded_policy) {
+int mount_setup(bool loaded_policy, bool leave_propagation) {
         unsigned i;
         int r = 0;
 
@@ -422,7 +422,7 @@ int mount_setup(bool loaded_policy) {
          * nspawn and the container tools work out of the box. If
          * specific setups need other settings they can reset the
          * propagation mode to private if needed. */
-        if (detect_container(NULL) <= 0)
+        if (detect_container(NULL) <= 0 && !leave_propagation)
                 if (mount(NULL, "/", NULL, MS_REC|MS_SHARED, NULL) < 0)
                         log_warning_errno(errno, "Failed to set up the root directory for shared mount propagation: %m");
 

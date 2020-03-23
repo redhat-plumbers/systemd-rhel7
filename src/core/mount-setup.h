@@ -24,7 +24,7 @@
 #include <stdbool.h>
 
 int mount_setup_early(void);
-int mount_setup(bool loaded_policy);
+int mount_setup(bool loaded_policy, bool leave_propagation);
 
 int mount_cgroup_controllers(char ***join_controllers);
 
