@@ -428,7 +428,7 @@ static struct udev_device *handle_scsi_hyperv(struct udev_device *parent, char *
         struct udev_device *hostdev;
         struct udev_device *vmbusdev;
         const char *guid_str;
-        _cleanup_free_ char *lun = NULL;
+        char *lun = NULL;
         char guid[39];
         size_t i, k;
 
