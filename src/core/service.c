@@ -2644,6 +2644,15 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         else
                 assert_not_reached("Unknown code");
 
+        /* Here's a special hack: avoid a timing issue caused by switching
+         * root when the initramfs contains an old systemd binary.
+         *
+         * https://bugzilla.redhat.com/show_bug.cgi?id=1855149
+         * https://bugzilla.redhat.com/show_bug.cgi?id=1825232 */
+        if (f != SERVICE_SUCCESS && status == SIGTERM &&
+            unit_has_name(UNIT(s), SPECIAL_INITRD_SWITCH_ROOT_SERVICE))
+                f = SERVICE_SUCCESS;
+
         if (s->main_pid == pid) {
                 /* Forking services may occasionally move to a new PID.
                  * As long as they update the PID file before exiting the old
