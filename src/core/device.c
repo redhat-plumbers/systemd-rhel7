@@ -97,6 +97,7 @@ static int device_set_sysfs(Device *d, const char *sysfs) {
         }
 
         d->sysfs = copy;
+        unit_add_to_dbus_queue(UNIT(d));
 
         return 0;
 }
