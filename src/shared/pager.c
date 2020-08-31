@@ -26,6 +26,7 @@
 #include <string.h>
 #include <sys/prctl.h>
 
+#include "env-util.h"
 #include "pager.h"
 #include "util.h"
 #include "macro.h"
@@ -102,6 +103,25 @@ int pager_open(bool jump_to_end) {
                  * to set the death signal */
                 if (getppid() != parent_pid)
                         _exit(EXIT_SUCCESS);
+
+                /* People might invoke us from sudo, don't needlessly allow less to be a way to shell out
+                 * privileged stuff. */
+                r = getenv_bool("SYSTEMD_LESSSECURE");
+                if (r == 0) { /* Remove env var if off */
+                        if (unsetenv("LESSSECURE") < 0) {
+                                log_error_errno(errno, "Failed to uset environment variable LESSSECURE: %m");
+                                _exit(EXIT_FAILURE);
+                        }
+                } else {
+                        /* Set env var otherwise */
+                        if (r < 0)
+                                log_warning_errno(r, "Unable to parse $SYSTEMD_LESSSECURE, ignoring: %m");
+
+                        if (setenv("LESSSECURE", "1", 1) < 0) {
+                                log_error_errno(errno, "Failed to set environment variable LESSSECURE: %m");
+                                _exit(EXIT_FAILURE);
+                        }
+                }
 
                 if (pager) {
                         execlp(pager, pager, NULL);
