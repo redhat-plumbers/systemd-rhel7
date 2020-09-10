@@ -1733,6 +1733,60 @@ int cg_trim_everywhere(CGroupControllerMask supported, const char *path, bool de
         return 0;
 }
 
+int cg_mask_to_string(CGroupControllerMask mask, char **ret) {
+        const char *controllers[_CGROUP_CONTROLLER_MAX + 1];
+        CGroupController c;
+        int i = 0;
+        char *s;
+
+        assert(ret);
+
+        if (mask == 0) {
+                *ret = NULL;
+                return 0;
+        }
+
+        for (c = 0; c < _CGROUP_CONTROLLER_MAX; c++) {
+
+                if (!(mask & CGROUP_CONTROLLER_TO_MASK(c)))
+                        continue;
+
+                controllers[i++] = cgroup_controller_to_string(c);
+                controllers[i] = NULL;
+        }
+
+        s = strv_join((char **)controllers, NULL);
+        if (!s)
+                return -ENOMEM;
+
+        *ret = s;
+        return 0;
+}
+
+int cg_mask_from_string(const char *value, CGroupControllerMask *mask) {
+        assert(mask);
+        assert(value);
+
+        for (;;) {
+                _cleanup_free_ char *n = NULL;
+                CGroupController v;
+                int r;
+
+                r = extract_first_word(&value, &n, NULL, 0);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                v = cgroup_controller_from_string(n);
+                if (v < 0)
+                        continue;
+
+                *mask |= CGROUP_CONTROLLER_TO_MASK(v);
+        }
+        return 0;
+}
+
 CGroupControllerMask cg_mask_supported(void) {
         CGroupControllerMask bit = 1, mask = 0;
         const char *n;
@@ -1837,3 +1891,14 @@ int cg_blkio_weight_parse(const char *s, uint64_t *ret) {
         *ret = u;
         return 0;
 }
+
+static const char *cgroup_controller_table[_CGROUP_CONTROLLER_MAX] = {
+        [CGROUP_CONTROLLER_CPU] = "cpu",
+        [CGROUP_CONTROLLER_CPUACCT] = "cpuacct",
+        [CGROUP_CONTROLLER_BLKIO] = "blkio",
+        [CGROUP_CONTROLLER_MEMORY] = "memory",
+        [CGROUP_CONTROLLER_DEVICE] = "device",
+        [CGROUP_CONTROLLER_PIDS] = "pids"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(cgroup_controller, CGroupController);

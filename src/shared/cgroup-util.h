@@ -28,15 +28,29 @@
 #include "set.h"
 #include "def.h"
 
+/* An enum of well known cgroup controllers */
+typedef enum CGroupController {
+        CGROUP_CONTROLLER_CPU,
+        CGROUP_CONTROLLER_CPUACCT,
+        CGROUP_CONTROLLER_BLKIO,
+        CGROUP_CONTROLLER_MEMORY,
+        CGROUP_CONTROLLER_DEVICE,
+        CGROUP_CONTROLLER_PIDS,
+        _CGROUP_CONTROLLER_MAX,
+        _CGROUP_CONTROLLER_INVALID = -1,
+} CGroupController;
+
+#define CGROUP_CONTROLLER_TO_MASK(c) (1 << (c))
+
 /* A bit mask of well known cgroup controllers */
 typedef enum CGroupControllerMask {
-        CGROUP_CPU = 1,
-        CGROUP_CPUACCT = 2,
-        CGROUP_BLKIO = 4,
-        CGROUP_MEMORY = 8,
-        CGROUP_DEVICE = 16,
-        CGROUP_PIDS = 32,
-        _CGROUP_CONTROLLER_MASK_ALL = 63
+        CGROUP_CPU = CGROUP_CONTROLLER_TO_MASK(CGROUP_CONTROLLER_CPU),
+        CGROUP_CPUACCT = CGROUP_CONTROLLER_TO_MASK(CGROUP_CONTROLLER_CPUACCT),
+        CGROUP_BLKIO = CGROUP_CONTROLLER_TO_MASK(CGROUP_CONTROLLER_BLKIO),
+        CGROUP_MEMORY = CGROUP_CONTROLLER_TO_MASK(CGROUP_CONTROLLER_MEMORY),
+        CGROUP_DEVICE = CGROUP_CONTROLLER_TO_MASK(CGROUP_CONTROLLER_DEVICE),
+        CGROUP_PIDS = CGROUP_CONTROLLER_TO_MASK(CGROUP_CONTROLLER_PIDS),
+        _CGROUP_CONTROLLER_MASK_ALL = CGROUP_CONTROLLER_TO_MASK(_CGROUP_CONTROLLER_MAX) - 1
 } CGroupControllerMask;
 
 /* Special values for the cpu.shares attribute */
@@ -158,8 +172,13 @@ int cg_migrate_everywhere(CGroupControllerMask supported, const char *from, cons
 int cg_trim_everywhere(CGroupControllerMask supported, const char *path, bool delete_root);
 
 CGroupControllerMask cg_mask_supported(void);
+int cg_mask_from_string(const char *s, CGroupControllerMask *ret);
+int cg_mask_to_string(CGroupControllerMask mask, char **ret);
 
 int cg_kernel_controllers(Set *controllers);
 
 int cg_cpu_shares_parse(const char *s, uint64_t *ret);
 int cg_blkio_weight_parse(const char *s, uint64_t *ret);
+
+const char* cgroup_controller_to_string(CGroupController c) _const_;
+CGroupController cgroup_controller_from_string(const char *s) _pure_;
