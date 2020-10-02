@@ -2200,6 +2200,9 @@ int unit_add_dependency(Unit *u, UnitDependency d, Unit *other, bool add_referen
         };
         int r, q = 0, v = 0, w = 0;
         Unit *orig_u = u, *orig_other = other;
+        /* Helper to know whether sending a notification is necessary or not:
+         * if the dependency is already there, no need to notify! */
+        bool noop = true;
 
         assert(u);
         assert(d >= 0 && d < _UNIT_DEPENDENCY_MAX);
@@ -2238,13 +2241,16 @@ int unit_add_dependency(Unit *u, UnitDependency d, Unit *other, bool add_referen
         q = set_put(u->dependencies[d], other);
         if (q < 0)
                 return q;
+        else if (q > 0)
+                noop = false;
 
         if (inverse_table[d] != _UNIT_DEPENDENCY_INVALID && inverse_table[d] != d) {
                 v = set_put(other->dependencies[inverse_table[d]], u);
                 if (v < 0) {
                         r = v;
                         goto fail;
-                }
+                } else if (v > 0)
+                        noop = false;
         }
 
         if (add_reference) {
@@ -2252,14 +2258,18 @@ int unit_add_dependency(Unit *u, UnitDependency d, Unit *other, bool add_referen
                 if (w < 0) {
                         r = w;
                         goto fail;
-                }
+                } else if (w > 0)
+                        noop = false;
 
                 r = set_put(other->dependencies[UNIT_REFERENCED_BY], u);
                 if (r < 0)
                         goto fail;
+                else if (r > 0)
+                        noop = false;
         }
 
-        unit_add_to_dbus_queue(u);
+        if (!noop)
+                unit_add_to_dbus_queue(u);
         return 0;
 
 fail:
