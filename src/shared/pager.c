@@ -26,10 +26,13 @@
 #include <string.h>
 #include <sys/prctl.h>
 
+#include "cgroup-util.h" /* cg_pid_get_owner_uid() */
+
 #include "env-util.h"
 #include "pager.h"
 #include "util.h"
 #include "macro.h"
+#include "strv.h"
 
 static pid_t pager_pid = 0;
 
@@ -46,6 +49,16 @@ noreturn static void pager_fallback(void) {
         }
 
         _exit(EXIT_SUCCESS);
+}
+
+/* Custom wrapper replacing sd_pid_get_owner_uid() from sd-login.h
+ * added to avoid having to include sd-login.h that causes linking problems */
+static int pg_pid_get_owner_uid(pid_t pid, uid_t *uid) {
+
+        assert_return(pid >= 0, -EINVAL);
+        assert_return(uid, -EINVAL);
+
+        return cg_pid_get_owner_uid(pid, uid);
 }
 
 int pager_open(bool jump_to_end) {
@@ -83,7 +96,9 @@ int pager_open(bool jump_to_end) {
 
         /* In the child start the pager */
         if (pager_pid == 0) {
-                const char* less_opts;
+                const char* less_opts, *exe;
+                int use_secure_mode;
+                bool trust_pager;
 
                 dup2(fd[0], STDIN_FILENO);
                 safe_close_pair(fd);
@@ -105,39 +120,57 @@ int pager_open(bool jump_to_end) {
                         _exit(EXIT_SUCCESS);
 
                 /* People might invoke us from sudo, don't needlessly allow less to be a way to shell out
-                 * privileged stuff. */
-                r = getenv_bool("SYSTEMD_LESSSECURE");
-                if (r == 0) { /* Remove env var if off */
-                        if (unsetenv("LESSSECURE") < 0) {
-                                log_error_errno(errno, "Failed to uset environment variable LESSSECURE: %m");
-                                _exit(EXIT_FAILURE);
-                        }
-                } else {
-                        /* Set env var otherwise */
-                        if (r < 0)
-                                log_warning_errno(r, "Unable to parse $SYSTEMD_LESSSECURE, ignoring: %m");
+                 * privileged stuff. If the user set $SYSTEMD_PAGERSECURE, trust their configuration of the
+                 * pager. If they didn't, use secure mode when under euid is changed. If $SYSTEMD_PAGERSECURE
+                 * wasn't explicitly set, and we autodetect the need for secure mode, only use the pager we
+                 * know to be good. */
+                use_secure_mode = getenv_bool("SYSTEMD_PAGERSECURE");
+                trust_pager = use_secure_mode >= 0;
 
-                        if (setenv("LESSSECURE", "1", 1) < 0) {
-                                log_error_errno(errno, "Failed to set environment variable LESSSECURE: %m");
-                                _exit(EXIT_FAILURE);
-                        }
+                if (use_secure_mode == -ENXIO) {
+                        uid_t uid;
+
+                        r = pg_pid_get_owner_uid(0, &uid);
+                        if (r < 0)
+                                log_debug_errno(r, "pg_pid_get_owner_uid() failed, enabling pager secure mode: %m");
+
+                        use_secure_mode = r < 0 || uid != geteuid();
+
+                } else if (use_secure_mode < 0) {
+                        log_warning_errno(use_secure_mode, "Unable to parse $SYSTEMD_PAGERSECURE, assuming true: %m");
+                        use_secure_mode = true;
                 }
 
-                if (pager) {
+                /* We generally always set variables used by less, even if we end up using a different pager.
+                 * They shouldn't hurt in any case, and ideally other pagers would look at them too. */
+                if (use_secure_mode)
+                        r = setenv("LESSSECURE", "1", 1);
+                else
+                        r = unsetenv("LESSSECURE");
+                if (r < 0) {
+                        log_error_errno(errno, "Failed to adjust environment variable LESSSECURE: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                if (trust_pager && pager) { /* The pager config might be set globally, and we cannot
+                                                  * know if the user adjusted it to be appropriate for the
+                                                  * secure mode. Thus, start the pager specified through
+                                                  * envvars only when $SYSTEMD_PAGERSECURE was explicitly set
+                                                  * as well. */
                         execlp(pager, pager, NULL);
                         execl("/bin/sh", "sh", "-c", pager, NULL);
                 }
 
-                /* Debian's alternatives command for pagers is
-                 * called 'pager'. Note that we do not call
-                 * sensible-pagers here, since that is just a
-                 * shell script that implements a logic that
-                 * is similar to this one anyway, but is
-                 * Debian-specific. */
-                execlp("pager", "pager", NULL);
+                /* Debian's alternatives command for pagers is called 'pager'. Note that we do not call
+                 * sensible-pagers here, since that is just a shell script that implements a logic that is
+                 * similar to this one anyway, but is Debian-specific. */
+                FOREACH_STRING(exe, "pager", "less", "more") {
+                        /* Only less implements secure mode right now. */
+                        if (use_secure_mode && !streq(exe, "less"))
+                                continue;
 
-                execlp("less", "less", NULL);
-                execlp("more", "more", NULL);
+                        execlp(exe, exe, NULL);
+                }
 
                 pager_fallback();
                 /* not reached */
