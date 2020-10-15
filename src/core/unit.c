@@ -270,6 +270,9 @@ int unit_set_description(Unit *u, const char *description) {
         if (isempty(description))
                 s = NULL;
         else {
+                if (streq_ptr(u->description, description))
+                        return 0;
+
                 s = strdup(description);
                 if (!s)
                         return -ENOMEM;
