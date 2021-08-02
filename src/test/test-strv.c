@@ -542,6 +542,16 @@ static void test_strv_reverse(void) {
         assert_se(streq_ptr(d[3], NULL));
 }
 
+static void test_utf8(void) {
+        _cleanup_strv_free_ char **v = NULL;
+        _cleanup_free_ char *s = NULL;
+
+        v = strv_new("/usr/bin/echo ", "привет", NULL);
+        assert_se(v);
+        s = strv_join_quoted(v);
+        assert_se(s);
+}
+
 int main(int argc, char *argv[]) {
         test_specifier_printf();
         test_strv_foreach();
@@ -598,6 +608,7 @@ int main(int argc, char *argv[]) {
         test_strv_equal();
         test_strv_is_uniq();
         test_strv_reverse();
+        test_utf8();
 
         return 0;
 }
