@@ -619,7 +619,7 @@ static int find_symlinks(
                         continue;
 
                 suffix = strrchr(de->d_name, '.');
-                if (!streq(suffix, ".wants") && !streq(suffix, ".requires"))
+                if (!streq_ptr(suffix, ".wants") && !streq_ptr(suffix, ".requires"))
                         continue;
 
                 path = path_join(config_path, de->d_name, NULL);
