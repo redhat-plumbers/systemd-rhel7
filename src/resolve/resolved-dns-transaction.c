@@ -37,7 +37,7 @@ DnsTransaction* dns_transaction_free(DnsTransaction *t) {
         dns_packet_unref(t->received);
         dns_answer_unref(t->cached);
 
-        dns_stream_free(t->stream);
+        dns_stream_unref(t->stream);
 
         if (t->scope) {
                 LIST_REMOVE(transactions_by_scope, t->scope->transactions, t);
@@ -114,7 +114,7 @@ static void dns_transaction_stop(DnsTransaction *t) {
         assert(t);
 
         t->timeout_event_source = sd_event_source_unref(t->timeout_event_source);
-        t->stream = dns_stream_free(t->stream);
+        t->stream = dns_stream_unref(t->stream);
 }
 
 static void dns_transaction_tentative(DnsTransaction *t, DnsPacket *p) {
@@ -208,7 +208,7 @@ static int on_stream_complete(DnsStream *s, int error) {
         t = s->transaction;
         p = dns_packet_ref(s->read_packet);
 
-        t->stream = dns_stream_free(t->stream);
+        t->stream = dns_stream_unref(t->stream);
 
         if (error != 0) {
                 dns_transaction_complete(t, DNS_TRANSACTION_RESOURCES);
@@ -279,7 +279,7 @@ static int dns_transaction_open_tcp(DnsTransaction *t) {
 
         r = dns_stream_write_packet(t->stream, t->sent);
         if (r < 0) {
-                t->stream = dns_stream_free(t->stream);
+                t->stream = dns_stream_unref(t->stream);
                 return r;
         }
 

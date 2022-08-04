@@ -1531,7 +1531,7 @@ static int on_llmnr_stream_packet(DnsStream *s) {
         } else
                 log_debug("Invalid LLMNR TCP packet.");
 
-        dns_stream_free(s);
+        dns_stream_unref(s);
         return 0;
 }
 
