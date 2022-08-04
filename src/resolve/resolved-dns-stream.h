@@ -31,6 +31,7 @@ typedef struct DnsStream DnsStream;
 
 struct DnsStream {
         Manager *manager;
+        int n_ref;
 
         DnsProtocol protocol;
 
@@ -59,6 +60,9 @@ struct DnsStream {
 };
 
 int dns_stream_new(Manager *m, DnsStream **s, DnsProtocol protocol, int fd);
-DnsStream *dns_stream_free(DnsStream *s);
+DnsStream *dns_stream_unref(DnsStream *s);
+DnsStream *dns_stream_ref(DnsStream *s);
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(DnsStream*, dns_stream_unref);
 
 int dns_stream_write_packet(DnsStream *s, DnsPacket *p);
