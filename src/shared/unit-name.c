@@ -28,11 +28,16 @@
 #include "util.h"
 #include "unit-name.h"
 #include "def.h"
+#include "sparse-endian.h"
+#include "siphash24.h"
 #include "strv.h"
 
 #define VALID_CHARS                             \
         DIGITS LETTERS                          \
         ":-_.\\"
+
+#define LONG_UNIT_NAME_HASH_KEY SD_ID128_MAKE(ec,f2,37,fb,58,32,4a,32,84,9f,06,9b,0d,21,eb,9a)
+#define UNIT_NAME_HASH_LENGTH_CHARS 16
 
 static const char* const unit_type_table[_UNIT_TYPE_MAX] = {
         [UNIT_SERVICE] = "service",
@@ -438,8 +443,78 @@ char *unit_name_template(const char *f) {
         return r;
 }
 
+bool unit_name_is_hashed(const char *name) {
+        char *s;
+
+        if (!unit_name_is_valid(name, UNIT_NAME_PLAIN))
+                return false;
+
+        assert_se(s = strrchr(name, '.'));
+
+        if (s - name < UNIT_NAME_HASH_LENGTH_CHARS + 1)
+                return false;
+
+        s -= UNIT_NAME_HASH_LENGTH_CHARS;
+        if (s[-1] != '_')
+                return false;
+
+        for (size_t i = 0; i < UNIT_NAME_HASH_LENGTH_CHARS; i++)
+                if (!strchr(LOWERCASE_HEXDIGITS, s[i]))
+                        return false;
+
+        return true;
+}
+
+int unit_name_hash_long(const char *name, char **ret) {
+        _cleanup_free_ char *n = NULL, *hash = NULL;
+        char *suffix;
+        le64_t h;
+        size_t len;
+        union {
+                uint64_t h;
+                uint8_t b[8];
+        } hu;
+
+        if (strlen(name) < UNIT_NAME_MAX)
+                return -EMSGSIZE;
+
+        suffix = strrchr(name, '.');
+        if (!suffix)
+                return -EINVAL;
+
+        if (unit_type_from_string(suffix+1) < 0)
+                return -EINVAL;
+
+        siphash24(hu.b, name, strlen(name) + 1, LONG_UNIT_NAME_HASH_KEY.bytes);
+        h = htole64(hu.h);
+
+        hash = hexmem(&h, sizeof(h));
+        if (!hash)
+                return -ENOMEM;
+
+        assert_se(strlen(hash) == UNIT_NAME_HASH_LENGTH_CHARS);
+
+        len = UNIT_NAME_MAX - 1 - strlen(suffix+1) - UNIT_NAME_HASH_LENGTH_CHARS - 2;
+        assert(len > 0 && len < UNIT_NAME_MAX);
+
+        n = strndup(name, len);
+        if (!n)
+                return -ENOMEM;
+
+        if (!strextend(&n, "_", hash, suffix, NULL))
+                return -ENOMEM;
+        assert_se(unit_name_is_valid(n, UNIT_NAME_PLAIN));
+
+        *ret = n;
+        n = NULL;
+
+        return 0;
+}
+
 char *unit_name_from_path(const char *path, const char *suffix) {
-        _cleanup_free_ char *p = NULL;
+        _cleanup_free_ char *p = NULL, *s = NULL;
+        char *ret;
+        int r;
 
         assert(path);
         assert(suffix);
@@ -448,7 +523,28 @@ char *unit_name_from_path(const char *path, const char *suffix) {
         if (!p)
                 return NULL;
 
-        return strappend(p, suffix);
+        s = strappend(p, suffix);
+        if (!s)
+                return NULL;
+
+        if (strlen(s) >= UNIT_NAME_MAX) {
+                _cleanup_free_ char *n = NULL;
+
+                log_debug("Unit name \"%s\" too long, falling back to hashed unit name.", s);
+
+                r = unit_name_hash_long(s, &n);
+                if (r < 0)
+                        return NULL;
+
+                 s = mfree(s);
+                 s = n;
+                 n = NULL;
+        }
+
+        ret = s;
+        s = NULL;
+
+        return ret;
 }
 
 char *unit_name_from_path_instance(const char *prefix, const char *path, const char *suffix) {
@@ -469,6 +565,9 @@ char *unit_name_to_path(const char *name) {
         _cleanup_free_ char *w = NULL;
 
         assert(name);
+
+        if (unit_name_is_hashed(name))
+                return NULL;
 
         w = unit_name_to_prefix(name);
         if (!w)
