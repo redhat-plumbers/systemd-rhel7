@@ -27,6 +27,7 @@
 #include "dbus-cgroup.h"
 #include "dbus-mount.h"
 #include "bus-util.h"
+#include "utf8.h"
 
 static int property_get_what(
                 sd_bus *bus,
@@ -37,21 +38,26 @@ static int property_get_what(
                 void *userdata,
                 sd_bus_error *error) {
 
+        _cleanup_free_ char *escaped = NULL;
         Mount *m = userdata;
-        const char *d;
+        const char *s = NULL;
 
         assert(bus);
         assert(reply);
         assert(m);
 
         if (m->from_proc_self_mountinfo && m->parameters_proc_self_mountinfo.what)
-                d = m->parameters_proc_self_mountinfo.what;
+                s = m->parameters_proc_self_mountinfo.what;
         else if (m->from_fragment && m->parameters_fragment.what)
-                d = m->parameters_fragment.what;
-        else
-                d = "";
+                s = m->parameters_fragment.what;
 
-        return sd_bus_message_append(reply, "s", d);
+        if (s) {
+                escaped = utf8_escape_invalid(s);
+                if (!escaped)
+                        return -ENOMEM;
+        }
+
+        return sd_bus_message_append_basic(reply, 's', escaped);
 }
 
 static int property_get_options(
@@ -63,21 +69,26 @@ static int property_get_options(
                 void *userdata,
                 sd_bus_error *error) {
 
+        _cleanup_free_ char *escaped = NULL;
         Mount *m = userdata;
-        const char *d;
+        const char *s = NULL;
 
         assert(bus);
         assert(reply);
         assert(m);
 
         if (m->from_proc_self_mountinfo && m->parameters_proc_self_mountinfo.options)
-                d = m->parameters_proc_self_mountinfo.options;
+                s = m->parameters_proc_self_mountinfo.options;
         else if (m->from_fragment && m->parameters_fragment.options)
-                d = m->parameters_fragment.options;
-        else
-                d = "";
+                s = m->parameters_fragment.options;
 
-        return sd_bus_message_append(reply, "s", d);
+        if (s) {
+                escaped = utf8_escape_invalid(s);
+                if (!escaped)
+                        return -ENOMEM;
+        }
+
+        return sd_bus_message_append_basic(reply, 's', escaped);
 }
 
 static int property_get_type(
