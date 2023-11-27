@@ -99,7 +99,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_TEMPLATE:
 
-                        if (!unit_name_is_valid(optarg, true) || !unit_name_is_template(optarg)) {
+                        if (!unit_name_is_valid(optarg, UNIT_NAME_TEMPLATE) || !unit_name_is_template(optarg)) {
                                 log_error("Template name %s is not valid.", optarg);
                                 return -EINVAL;
                         }
