@@ -5967,6 +5967,7 @@ bool documentation_url_is_valid(const char *url) {
 bool in_initrd(void) {
         static int saved = -1;
         struct statfs s;
+        int r;
 
         if (saved >= 0)
                 return saved;
@@ -5981,9 +5982,16 @@ bool in_initrd(void) {
          * emptying when transititioning to the main systemd.
          */
 
-        saved = access("/etc/initrd-release", F_OK) >= 0 &&
-                statfs("/", &s) >= 0 &&
-                is_temporary_fs(&s);
+        r = getenv_bool("SYSTEMD_IN_INITRD");
+        if (r < 0 && r != -ENXIO)
+                log_debug_errno(r, "Failed to parse $SYSTEMD_IN_INITRD, ignoring: %m");
+
+        if (r >= 0)
+                saved = r > 0;
+        else
+                saved = access("/etc/initrd-release", F_OK) >= 0 &&
+                               statfs("/", &s) >= 0 &&
+                               is_temporary_fs(&s);
 
         return saved;
 }
