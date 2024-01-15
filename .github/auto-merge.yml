@@ -1,0 +1,4 @@
+labels:
+  dont-merge: dont-merge
+  manual-merge: pr/needs-manual-merge
+target-branch': ['rhel-7.9']

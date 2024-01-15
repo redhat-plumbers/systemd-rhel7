@@ -1,0 +1,4 @@
+labels:
+  missing-review: pr/needs-review
+  changes-requested: pr/changes-requested
+  missing-failing-ci: pr/needs-ci
