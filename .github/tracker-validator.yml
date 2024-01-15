@@ -1,0 +1,15 @@
+labels:
+  missing-tracker: tracker/missing
+  invalid-product: tracker/invalid-product
+  invalid-component: tracker/invalid-component
+  unapproved: tracker/unapproved
+products:
+  - Red Hat Enterprise Linux 7
+  - rhel-7.4
+  - rhel-7.4.z
+  - rhel-7.6
+  - rhel-7.6.z
+  - rhel-7.7
+  - rhel-7.7.z
+  - rhel-7.9
+  - rhel-7.9.z
