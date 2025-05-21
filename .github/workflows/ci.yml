@@ -1,0 +1,102 @@
+---
+# vi: ts=2 sw=2 et:
+
+name: Build & test
+on:
+  pull_request:
+    branches:
+      - rhel-7.9
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  centos7:
+    runs-on: ubuntu-latest
+    container:
+      image: quay.io/centos/centos:7
+      options: "--privileged -v /dev:/dev"
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+    strategy:
+      fail-fast: false
+    steps:
+      - name: Configure repositories
+        run: |
+          # CentOS 7 is EOL, so we need to grab the repos from the CentOS Vault
+          sed -i 's/^mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
+          sed -i 's|#baseurl=http://mirror.centos.org|baseurl=https://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
+          yum clean all
+          yum makecache
+
+      - name: Install build & test dependencies
+        run: |
+          yum-builddep -y systemd
+          yum install -y dhclient e2fsprogs file git kernel kbd net-tools qemu-kvm strace systemd-journal-gateway systemd-resolved xfsprogs
+
+      # We can't use the actions/checkout action, since it's no longer compatible with some _very_ old images,
+      # like CentOS 7. To circumvent this, let's make a poor man's version of the checkout action for our needs.
+      - name: Checkout the repository
+        run: |
+          set -ux
+
+          git clone "https://github.com/$GITHUB_REPOSITORY" "$GITHUB_WORKSPACE"
+          cd "$GITHUB_WORKSPACE"
+          git fetch -fu origin "refs/pull/$GITHUB_REF_NAME:pr"
+          git checkout pr
+          git log -2
+
+      - name: Build
+        run: |
+          set -x
+
+          ./autogen.sh
+          ./configure --with-sysvinit-path=/etc/rc.d/init.d \
+                      --with-rc-local-script-path-start=/etc/rc.d/rc.local \
+                      --disable-timesyncd \
+                      --disable-kdbus \
+                      --disable-terminal \
+                      --enable-gtk-doc \
+                      --enable-compat-libs \
+                      --disable-sysusers \
+                      --disable-ldconfig \
+                      --enable-lz4
+          make -j $(nproc)
+
+      - name: Run unit tests
+        run: |
+          set -ux
+
+          if ! make check; then
+            cat ./test-suite.log
+            exit 1
+          fi
+
+      - name: Run integration tests
+        run: |
+          set -ux
+
+          export QEMU_BIN=/usr/libexec/qemu-kvm
+          export QEMU_TIMEOUT=600
+          export TEST_NO_NSPAWN=1
+          export KERNEL_VER="$(rpm -q --qf '%{VERSION}-%{RELEASE}.%{ARCH}' kernel | head -n1)"
+          export KERNEL_BIN="/boot/vmlinuz-$KERNEL_VER"
+          export KERNEL_APPEND="systemd.default_standard_output=journal+console"
+          export INITRD="$PWD/test.initrd"
+
+          # Note: skip TEST-02-CRYPTSETUP here, since dealing with udev in containers is pain
+          readarray -t TESTS < <(find test/ -maxdepth 1 -name "TEST-*" ! -name "TEST-02-CRYPTSETUP" -type d | sort)
+          [[ "${#TESTS[@]}" -gt 0 ]]
+
+          dracut -v --force --kver "$KERNEL_VER" --no-hostonly "$INITRD"
+
+          for test in "${TESTS[@]}"; do
+            echo "::group::$test"
+            make -C "$test" clean setup run clean
+            echo "::endgroup::"
+          done
