@@ -22,11 +22,18 @@
 #include "sd-bus.h"
 #include "bus-dump.h"
 #include "bus-util.h"
+#include "cgroup-util.h"
 #include "util.h"
 
 int main(int argc, char *argv[]) {
         _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+        _cleanup_free_ char *cg_root = NULL;
         int r;
+
+        if (cg_get_root_path(&cg_root) < 0) {
+                puts("Can't access /sys/fs/cgroup/systemd, skipping the test");
+                return EXIT_TEST_SKIP;
+        }
 
         r = sd_bus_creds_new_from_pid(&creds, 0, _SD_BUS_CREDS_ALL);
         assert_se(r >= 0);
